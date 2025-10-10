@@ -460,8 +460,7 @@ ${root_prefix}() {
     # optional argument started: use option strings
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_option_strings[*]}" -- "${completing_word}")
-  elif [[ "${previous_word}" == ">" || "${previous_word}" == ">>" ||
-          "${previous_word}" =~ ^[12]">" || "${previous_word}" =~ ^[12]">>" ]]; then
+  elif [[ "${previous_word}" =~ ^[0-9\\&]*[\\<\\>]\\>?$ ]]; then
     # handle redirection operators
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
   else
