@@ -1075,6 +1075,10 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
     }
 
     # --- Generate completions ---
+    if ($$env:SHTAB_DEBUG -eq 'true') {
+        Write-Host "shtab: wordToComplete='$$wordToComplete' prefix='$$prefix' actionKey='$$currentActionKey' isPositional='$$currentActionIsPositional' posOnly='$$posOnly'"
+    }
+
     $$completions = @()
 
     if (-not $$posOnly -and $$wordToComplete -like '-*') {
