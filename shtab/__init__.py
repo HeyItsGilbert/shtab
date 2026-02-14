@@ -1018,12 +1018,13 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
     # State tracking
     $$prefix = '${root_prefix}'
     $$completedPositionals = 0
+    $$currentActionKey = "$${prefix}_pos_0"
     $$currentActionNargs = 1
     $$currentActionArgsConsumed = 0
     $$currentActionIsPositional = $$true
     $$posOnly = $$false
 
-    # Helper: update action state for a new action
+    # Helper: look up nargs for a given action key (default 1)
     function Get-ActionNargs($$actionKey) {
         $$n = $$${root_prefix}_nargs[$$actionKey]
         if ($$n) { return $$n } else { return '1' }
@@ -1037,7 +1038,8 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
             if ($$currentSubparsers -and $$currentSubparsers -contains $$token) {
                 $$prefix = $$prefix + '_' + (_shtab_powershell_replace_nonword $$token)
                 $$completedPositionals = 0
-                $$currentActionNargs = 1
+                $$currentActionKey = "$${prefix}_pos_0"
+                $$currentActionNargs = Get-ActionNargs $$currentActionKey
                 $$currentActionArgsConsumed = 0
                 $$currentActionIsPositional = $$true
                 continue
@@ -1046,8 +1048,8 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
             # Check for option string match
             $$currentOptions = $$${root_prefix}_option_strings[$$prefix]
             if ($$currentOptions -and $$currentOptions -contains $$token) {
-                $$optKey = $$prefix + '_' + (_shtab_powershell_replace_nonword $$token)
-                $$currentActionNargs = Get-ActionNargs $$optKey
+                $$currentActionKey = $$prefix + '_' + (_shtab_powershell_replace_nonword $$token)
+                $$currentActionNargs = Get-ActionNargs $$currentActionKey
                 $$currentActionArgsConsumed = 0
                 $$currentActionIsPositional = $$false
                 continue
@@ -1061,8 +1063,8 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
                 $$currentActionNargs -notlike '*...*') {
                 if ($$currentActionArgsConsumed -ge [int]$$currentActionNargs) {
                     if ($$currentActionIsPositional) { $$completedPositionals++ }
-                    $$posKey = "$${prefix}_pos_$${completedPositionals}"
-                    $$currentActionNargs = Get-ActionNargs $$posKey
+                    $$currentActionKey = "$${prefix}_pos_$${completedPositionals}"
+                    $$currentActionNargs = Get-ActionNargs $$currentActionKey
                     $$currentActionArgsConsumed = 0
                     $$currentActionIsPositional = $$true
                 }
@@ -1082,31 +1084,26 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
             $$completions = @($$opts | Where-Object { $$_ -like "$$wordToComplete*" })
         }
     } else {
-        # Complete subparsers
-        $$subs = $$${root_prefix}_subparsers[$$prefix]
-        if ($$subs) {
-            $$completions += @($$subs | Where-Object { $$_ -like "$$wordToComplete*" })
+        # Complete subparsers (only when current action is positional)
+        if ($$currentActionIsPositional) {
+            $$subs = $$${root_prefix}_subparsers[$$prefix]
+            if ($$subs) {
+                $$completions += @($$subs | Where-Object { $$_ -like "$$wordToComplete*" })
+            }
         }
 
-        # Complete choices for current positional
-        $$posChoiceKey = "$${prefix}_pos_$${completedPositionals}"
-        $$posChoices = $$${root_prefix}_choices[$$posChoiceKey]
-        if ($$posChoices) {
-            $$completions += @($$posChoices | Where-Object { $$_ -like "$$wordToComplete*" })
+        # Complete choices for current action (positional or option)
+        $$actionChoices = $$${root_prefix}_choices[$$currentActionKey]
+        if ($$actionChoices) {
+            $$completions += @($$actionChoices | Where-Object { $$_ -like "$$wordToComplete*" })
         }
 
-        # Complete using compgen function for current positional
-        $$posCompgen = $$${root_prefix}_compgens[$$posChoiceKey]
-        if ($$posCompgen) {
-            $$completions += @(& $$posCompgen $$wordToComplete)
+        # Complete using compgen function for current action
+        $$actionCompgen = $$${root_prefix}_compgens[$$currentActionKey]
+        if ($$actionCompgen) {
+            $$completions += @(& $$actionCompgen $$wordToComplete)
         }
     }
-
-    # TODO: handle option-specific choices and compgens (e.g. --shell bash/zsh)
-    # When the current action is an option with choices, complete those choices.
-    # This requires tracking the current option's action key through the state
-    # machine above and looking it up in $$${root_prefix}_choices and
-    # $$${root_prefix}_compgens.
 
     # Deduplicate and emit CompletionResult objects
     $$completions | Select-Object -Unique | ForEach-Object {
