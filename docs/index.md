@@ -18,6 +18,7 @@
     - `bash`
     - `zsh`
     - `tcsh`
+    - `powershell`
 -   Supports
     - [argparse](https://docs.python.org/library/argparse)
     - [docopt](https://pypi.org/project/docopt) (via [argopt](https://pypi.org/project/argopt))
@@ -110,7 +111,6 @@ application. Use `-u, --error-unimportable` to noisily complain.
 Please do open [issues][GH-issue] & [pull requests][GH-pr]! Some ideas:
 
 - support `fish` ([#174](https://github.com/iterative/shtab/pull/174))
-- support `powershell`
 
 See
 [CONTRIBUTING.md](https://github.com/iterative/shtab/tree/main/CONTRIBUTING.md)

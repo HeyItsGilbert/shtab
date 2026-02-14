@@ -10,7 +10,7 @@ import shtab  # for completion magic
 
 TXT_FILE = {
     "bash": "_shtab_greeter_compgen_TXTFiles", "zsh": "_files -g '(*.txt|*.TXT)'",
-    "tcsh": "f:*.txt"}
+    "tcsh": "f:*.txt", "powershell": "_shtab_greeter_compgen_TXTFiles"}
 PREAMBLE = {
     "bash": """
 # $1=COMP_WORDS[1]
@@ -19,7 +19,15 @@ _shtab_greeter_compgen_TXTFiles() {
   compgen -f -X '!*?.txt' -- $1
   compgen -f -X '!*?.TXT' -- $1
 }
-""", "zsh": "", "tcsh": ""}
+""", "zsh": "", "tcsh": "", "powershell": """
+function _shtab_greeter_compgen_TXTFiles {
+    param([string]$WordToComplete)
+    Get-ChildItem -Path "$WordToComplete*" -Include '*.txt','*.TXT' -File -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.Name }
+    Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.Name + [System.IO.Path]::DirectorySeparatorChar }
+}
+"""}
 
 
 def process(args):
