@@ -38,10 +38,11 @@ log = logging.getLogger(__name__)
 SUPPORTED_SHELLS: List[str] = []
 _SUPPORTED_COMPLETERS = {}
 CHOICE_FUNCTIONS: Dict[str, Dict[str, str]] = {
-    "file": {"bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f",
-             "powershell": "_shtab_powershell_compgen_files"},
-    "directory": {"bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
-                  "powershell": "_shtab_powershell_compgen_dirs"}}
+    "file": {
+        "bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f",
+        "powershell": "_shtab_powershell_compgen_files"}, "directory": {
+            "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
+            "powershell": "_shtab_powershell_compgen_dirs"}}
 FILE = CHOICE_FUNCTIONS["file"]
 DIRECTORY = DIR = CHOICE_FUNCTIONS["directory"]
 FLAG_OPTION = (
@@ -920,7 +921,8 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                 opt_key = f"{prefix}_{wordify(option_string)}"
 
                 if hasattr(optional, "complete"):
-                    comp_pattern = complete2pattern(optional.complete, "powershell", choice_type2fn)
+                    comp_pattern = complete2pattern(optional.complete, "powershell",
+                                                    choice_type2fn)
                     if comp_pattern:
                         all_compgens[opt_key] = comp_pattern
 
