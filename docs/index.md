@@ -17,7 +17,7 @@
 ## Features
 
 - Outputs tab completion scripts for multiple shells
-    - `bash`, `zsh`, `fish`, `tcsh`
+    - `bash`, `zsh`, `fish`, `tcsh`, `powershell`
 - Supports
     - [`argparse`](https://docs.python.org/library/argparse)
     - [`docopt`](https://pypi.org/project/docopt) (via [`argopt`](https://pypi.org/project/argopt))

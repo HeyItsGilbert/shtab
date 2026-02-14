@@ -88,7 +88,8 @@ def test_main_self_completion(shell, capsys):
     assert not captured.err
     expected = {
         'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
-        'tcsh': "complete shtab", 'fish': "complete -c shtab"}
+        'tcsh': "complete shtab", 'fish': "complete -c shtab",
+        'powershell': "Register-ArgumentCompleter -Native -CommandName shtab"}
     assert expected[shell] in captured.out
 
 
@@ -101,7 +102,8 @@ def test_main_output_path(shell, capsys, change_dir, output):
     assert not captured.err
     expected = {
         'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
-        'tcsh': "complete shtab", 'fish': "complete -c shtab"}
+        'tcsh': "complete shtab", 'fish': "complete -c shtab",
+        'powershell': "Register-ArgumentCompleter -Native -CommandName shtab"}
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
     else:
@@ -155,6 +157,9 @@ def test_prog_scripts(shell, capsys):
             f"{start} -l verbose -d 'Log debug information'",
             f'{start} -l print-own-completion -xka "bash zsh tcsh fish" -d'
             " 'print shtab'\"'\"'s own completion'"]
+    elif shell == 'powershell':
+        assert script_py == [
+            "Register-ArgumentCompleter -Native -CommandName script.py -ScriptBlock {"]
     else:
         raise NotImplementedError(shell)
 
