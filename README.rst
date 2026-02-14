@@ -21,6 +21,7 @@ Features
   - ``bash``
   - ``zsh``
   - ``tcsh``
+  - ``powershell``
 
 - Supports
 
@@ -60,8 +61,8 @@ There are two ways of using ``shtab``:
 - `Library Usage <https://docs.iterative.ai/shtab/use/#library-usage>`_: as a library integrated into your CLI application
 
   - adds a couple of lines to your application
-  - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh,tcsh}``
-  - subparser mode: end-users execute ``your_cli_app completion {bash,zsh,tcsh}``
+  - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh,tcsh,powershell}``
+  - subparser mode: end-users execute ``your_cli_app completion {bash,zsh,tcsh,powershell}``
 
 Examples
 --------
@@ -98,7 +99,6 @@ Contributions
 Please do open `issues <https://github.com/iterative/shtab/issues>`_ & `pull requests <https://github.com/iterative/shtab/pulls>`_! Some ideas:
 
 - support ``fish`` (`#174 <https://github.com/iterative/shtab/pull/174>`_)
-- support ``powershell``
 
 See
 `CONTRIBUTING.md <https://github.com/iterative/shtab/tree/main/CONTRIBUTING.md>`_

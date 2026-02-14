@@ -76,7 +76,8 @@ def test_main_self_completion(shell, caplog, capsys):
     assert not captured.err
     expected = {
         "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
-        "tcsh": "complete shtab"}
+        "tcsh": "complete shtab",
+        "powershell": "Register-ArgumentCompleter -Native -CommandName shtab"}
     assert expected[shell] in captured.out
 
     assert not caplog.record_tuples
@@ -96,7 +97,8 @@ def test_main_output_path(shell, caplog, capsys, change_dir, output):
     assert not captured.err
     expected = {
         "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
-        "tcsh": "complete shtab"}
+        "tcsh": "complete shtab",
+        "powershell": "Register-ArgumentCompleter -Native -CommandName shtab"}
 
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
@@ -139,6 +141,9 @@ def test_prog_scripts(shell, caplog, capsys):
             "compdef _shtab_shtab -N script.py"]
     elif shell == "tcsh":
         assert script_py == ["complete script.py \\"]
+    elif shell == "powershell":
+        assert script_py == [
+            "Register-ArgumentCompleter -Native -CommandName script.py -ScriptBlock {"]
     else:
         raise NotImplementedError(shell)
 
