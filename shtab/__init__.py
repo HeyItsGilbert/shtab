@@ -1043,8 +1043,6 @@ def _powershell_escape(string: str) -> str:
 
 def _powershell_list(items):
     """Serialize a list of strings to a PowerShell array literal."""
-    if not items:
-        return "@()"
     escaped = ", ".join(f"'{_powershell_escape(i)}'" for i in items)
     return f"@({escaped})"
 
@@ -1053,9 +1051,9 @@ def _powershell_hashtable(d):
     """Serialize a dict[str, list[str]] to PowerShell @{} syntax."""
     if not d:
         return "@{}"
-    entries = []
-    for key, values in sorted(d.items()):
-        entries.append(f"    '{_powershell_escape(key)}' = {_powershell_list(values)}")
+    entries = [
+        f"    '{_powershell_escape(key)}' = {_powershell_list(values)}"
+        for key, values in sorted(d.items())]
     return "@{\n" + "\n".join(entries) + "\n}"
 
 
@@ -1063,9 +1061,9 @@ def _powershell_flat_hashtable(d):
     """Serialize a dict[str, str] to PowerShell @{} syntax."""
     if not d:
         return "@{}"
-    entries = []
-    for key, value in sorted(d.items()):
-        entries.append(f"    '{_powershell_escape(key)}' = '{_powershell_escape(value)}'")
+    entries = [
+        f"    '{_powershell_escape(key)}' = '{_powershell_escape(value)}'"
+        for key, value in sorted(d.items())]
     return "@{\n" + "\n".join(entries) + "\n}"
 
 
@@ -1102,9 +1100,6 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
         discovered_subparsers = []
 
         for i, positional in enumerate(parser._get_positional_actions()):
-            if positional.help == SUPPRESS:
-                continue
-
             action_key = f"{prefix}_pos_{i}"
 
             if hasattr(positional, "complete"):
