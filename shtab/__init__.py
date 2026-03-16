@@ -1037,13 +1037,22 @@ ${completions}
 
 
 def _powershell_escape(string: str) -> str:
-    """Escape a string for use inside a PowerShell single-quoted string."""
-    return str(string).replace("'", "''")
+    """
+    Quote a string for PowerShell (single-quoted, like ``shlex.quote``).
+    In single-quoted strings the only special characters are quote chars.
+    PowerShell treats smart/curly single quotes (\u2018, \u2019) the same as
+    regular single quotes, so they must be doubled too.
+    See https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_quoting_rules
+    """
+    s = str(string)
+    for ch in ("'", "\u2018", "\u2019"):
+        s = s.replace(ch, ch * 2)
+    return "'" + s + "'"
 
 
 def _powershell_list(items):
     """Serialize a list of strings to a PowerShell array literal."""
-    escaped = ", ".join(f"'{_powershell_escape(i)}'" for i in items)
+    escaped = ", ".join(_powershell_escape(i) for i in items)
     return f"@({escaped})"
 
 
@@ -1052,7 +1061,7 @@ def _powershell_hashtable(d):
     if not d:
         return "@{}"
     entries = [
-        f"    '{_powershell_escape(key)}' = {_powershell_list(values)}"
+        f"    {_powershell_escape(key)} = {_powershell_list(values)}"
         for key, values in sorted(d.items())]
     return "@{\n" + "\n".join(entries) + "\n}"
 
@@ -1062,7 +1071,7 @@ def _powershell_flat_hashtable(d):
     if not d:
         return "@{}"
     entries = [
-        f"    '{_powershell_escape(key)}' = '{_powershell_escape(value)}'"
+        f"    {_powershell_escape(key)} = {_powershell_escape(value)}"
         for key, value in sorted(d.items())]
     return "@{\n" + "\n".join(entries) + "\n}"
 
