@@ -851,15 +851,12 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 output.append("-F")
 
             # Offer the different choices
-            if hasattr(optional, "complete"):
+            if optional.choices:
+                output.append(f"-r -a \"{' '.join(map(str, optional.choices))}\"")
+            elif hasattr(optional, "complete"):
                 complete_fn = complete2pattern(optional.complete, 'fish', choice_type2fn)
                 if complete_fn:
                     output.append(f"-r -a \"{complete_fn}\"")
-            elif optional.choices and isinstance(optional.choices[0], Choice):
-                complete_pattern = choice_type2fn[optional.choices[0].type]
-                output.append(f"-r -a \"{complete_pattern}\"")
-            elif optional.choices:
-                output.append(f"-r -a \"{' '.join(map(str, optional.choices))}\"")
 
             if optional.help:
                 output.append(f"-d \"{_escape(optional.help)}\"")
