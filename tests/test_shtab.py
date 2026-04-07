@@ -74,7 +74,7 @@ def test_main_self_completion(shell, caplog, capsys):
     assert not captured.err
     expected = {
         "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
-        "tcsh": "complete shtab"}
+        "tcsh": "complete shtab", "fish": "complete -c shtab"}
     assert expected[shell] in captured.out
 
     assert not caplog.record_tuples
@@ -94,7 +94,7 @@ def test_main_output_path(shell, caplog, capsys, change_dir, output):
     assert not captured.err
     expected = {
         "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
-        "tcsh": "complete shtab"}
+        "tcsh": "complete shtab", "fish": "complete -c shtab"}
 
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
@@ -137,6 +137,23 @@ def test_prog_scripts(shell, caplog, capsys):
             "compdef _shtab_shtab -N script.py"]
     elif shell == "tcsh":
         assert script_py == ["complete script.py \\"]
+    elif shell == "fish":
+        start = 'complete -c script.py -n "__fish_use_subcommand"'
+        help_unimportable = '"raise errors if `parser` is not found in $PYTHONPATH"'
+        help_completion = '"bash zsh tcsh fish" -d "print shtab\'s own completion"'
+        assert script_py == [
+            'complete -c script.py -e', 'complete -c script.py -f',
+            f'{start} -s h -l help -f -d "show this help message and exit"',
+            f'{start} -l version -f -d "show program\'s version number and exit"',
+            f'{start} -s s -l shell -f -r -a "bash zsh tcsh fish"',
+            f'{start} -s o -l output -F -d "output file (- for stdout)"',
+            f'{start} -l prefix -f -d "prepended to generated functions to avoid clashes"',
+            f'{start} -l preamble -f -d "prepended to generated script"',
+            f'{start} -l prog -f -d "custom program name (overrides `parser.prog`)"',
+            f'{start} -s u -l error-unimportable -f -d {help_unimportable}',
+            f'{start} -l verbose -f -d "Log debug information"',
+            f'{start} -l print-own-completion -f -r -a {help_completion}',
+            f'{start} -F -d "importable parser (or function returning parser)"']
     else:
         raise NotImplementedError(shell)
 

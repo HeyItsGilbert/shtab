@@ -25,8 +25,10 @@ log = logging.getLogger(__name__)
 SUPPORTED_SHELLS: list[str] = []
 _SUPPORTED_COMPLETERS: dict[str, Callable] = {}
 CHOICE_FUNCTIONS: dict[str, dict[str, str]] = {
-    "file": {"bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f"},
-    "directory": {"bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d"}}
+    "file": {"bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f", "fish": ""},
+    "directory": {
+        "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
+        "fish": "__fish_complete_directories"}}
 FILE = CHOICE_FUNCTIONS["file"]
 DIRECTORY = DIR = CHOICE_FUNCTIONS["directory"]
 FLAG_OPTION = (
@@ -777,6 +779,168 @@ complete ${prog} \\
         prog=parser.prog, optionals_double_str=' '.join(sorted(optionals_double)),
         optionals_single_str=' '.join(sorted(optionals_single)),
         optionals_special_str=' \\\n        '.join(specials))
+
+
+@mark_completer("fish")
+def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
+    """
+    Return fish syntax autocompletion script.
+
+    root_prefix:
+      ignored (fish has no support for functions)
+    """
+
+    prog = parser.prog
+    completions = []
+
+    if preamble:
+        preamble = f"# Custom Preamble\n{preamble}\n# End Custom Preamble\n"
+
+    choice_type2fn = {k: v["fish"] for k, v in CHOICE_FUNCTIONS.items()}
+    if choice_functions:
+        choice_type2fn.update(choice_functions)
+
+    def recurse_parser(cparser: ArgumentParser, path: List[str], same_level: str):
+        """
+        path:
+          the list of subcommands that led to current
+
+        same_level:
+          a space separated list of other subcommands available on the same level
+          must not contain the current subcommand
+        """
+        log_prefix = "| " * len(path)
+        log.debug("%sParser @ %d", log_prefix, len(path))
+
+        def _escape(text):
+            return text.replace('"', r"\"")
+
+        for optional in cparser._get_optional_actions():
+            log.debug("%s| Optional: %s", log_prefix, optional.dest)
+
+            if optional.help == SUPPRESS:
+                continue
+
+            output = ["complete", "-c", prog]
+
+            if len(path) > 0:
+                # Show option only if in subcommand path, and no subcommand on other level is shown
+                cond_path = [f"__fish_seen_subcommand_from {cmd}" for cmd in path]
+
+                cond_level = ""
+                if same_level != "":
+                    cond_level = f"; and not __fish_seen_subcommand_from {same_level}"
+
+                cond = '; and '.join(cond_path) + cond_level
+                output.append(f"-n \"{cond}\"")
+            else:
+                output.append("-n \"__fish_use_subcommand\"")
+
+            for optional_str in optional.option_strings:
+                log.debug("%s| | %s", log_prefix, optional_str)
+                if optional_str.startswith("--"):
+                    output.append(f"-l {optional_str[2:]}")
+                elif optional_str.startswith("-"):
+                    output.append(f"-s {optional_str[1:]}")
+
+            # Disable file and directories completion if no type is provided
+            # (by default, Fish always suggests files and directories)
+            if optional.type is None:
+                output.append("-f")
+            else:
+                output.append("-F")
+
+            # Offer the different choices
+            if hasattr(optional, "complete"):
+                complete_fn = complete2pattern(optional.complete, 'fish', choice_type2fn)
+                if complete_fn:
+                    output.append(f"-r -a \"{complete_fn}\"")
+            elif optional.choices and isinstance(optional.choices[0], Choice):
+                complete_pattern = choice_type2fn[optional.choices[0].type]
+                output.append(f"-r -a \"{complete_pattern}\"")
+            elif optional.choices:
+                output.append(f"-r -a \"{' '.join(map(str, optional.choices))}\"")
+
+            if optional.help:
+                output.append(f"-d \"{_escape(optional.help)}\"")
+
+            completions.append(' '.join(output))
+
+        for positional in cparser._get_positional_actions():
+            if positional.help == SUPPRESS:
+                continue
+
+            log.debug("%s| Positional #%d: %s", log_prefix, len(path) + 1, positional.dest)
+
+            if isinstance(positional.choices, dict):
+                # Positional subcommand
+                public = get_public_subcommands(positional)
+                same_level = ' '.join(public)
+
+                for subcmd, subparser in positional.choices.items():
+                    if subcmd not in public:
+                        continue
+
+                    log.debug("%s| | SubParser: %s", log_prefix, subcmd)
+                    output = ["complete", "-c", prog]
+
+                    if len(path) > 0:
+                        cond_path = [f"__fish_seen_subcommand_from {cmd}" for cmd in path]
+
+                        cond_level = ""
+                        if same_level != "":
+                            cond_level = f"; and not __fish_seen_subcommand_from {same_level}"
+
+                        cond = '; and '.join(cond_path) + cond_level
+                        output.append(f"-n \"{cond}\"")
+                    else:
+                        output.append("-n \"__fish_use_subcommand\"")
+
+                    output.append("-f")
+                    output.append(f"-a {subcmd}")
+
+                    if subparser.description:
+                        output.append(f"-d \"{_escape(subparser.description.split('\n')[0])}\"")
+
+                    completions.append(' '.join(output))
+
+                    same_level_without_current = ' '.join(filter(lambda c: c != subcmd, public))
+                    recurse_parser(subparser, path + [subcmd], same_level_without_current)
+
+            else:
+                # Simple argument (file, name...)
+                output = ["complete", "-c", prog]
+
+                if len(path) > 0:
+                    cond = '; and '.join([f"__fish_seen_subcommand_from {cmd}" for cmd in path])
+                    output.append(f"-n \"{cond}\"")
+                else:
+                    output.append("-n \"__fish_use_subcommand\"")
+
+                # Allow file propositions specifically for this argument
+                output.append("-F")
+
+                if positional.help:
+                    output.append(f"-d \"{_escape(positional.help.split('\n')[0])}\"")
+
+                completions.append(' '.join(output))
+
+    recurse_parser(parser, [], "")
+
+    return Template("""\
+# AUTOMATICALLY GENERATED by `shtab`
+
+${preamble}
+
+complete -c ${prog} -e
+complete -c ${prog} -f
+
+${completions}
+""").safe_substitute(
+        preamble=preamble,
+        prog=parser.prog,
+        completions='\n'.join(completions),
+    )
 
 
 def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] = None,
