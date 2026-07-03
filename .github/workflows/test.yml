@@ -65,5 +65,5 @@ jobs:
         history: false
         dir: dist/site
         nojekyll: true
-        name: Olivaw[bot]
-        email: 64868532+iterative-olivaw@users.noreply.github.com
+        name: tqdm[bot]
+        email: 68520887+tqdm-bot@users.noreply.github.com
