@@ -7,13 +7,13 @@ processors:
 - type: crossref
 hooks:
   pre-render:
-  - sed 's#](./#](https://github.com/iterative/shtab/tree/main/#g' ../CONTRIBUTING.md > contributing.md
+  - sed 's#](./#](https://github.com/tqdm/shtab/tree/main/#g' ../CONTRIBUTING.md > contributing.md
 renderer:
   type: mkdocs
   markdown:
     source_linker:
       type: github
-      repo: iterative/shtab
+      repo: tqdm/shtab
       root: ..
     source_position: before signature
     source_format: |
@@ -33,11 +33,11 @@ renderer:
   - title: External Links
     children:
     - title: Source Code
-      href: https://github.com/iterative/shtab
+      href: https://github.com/tqdm/shtab
     - title: Changelog
-      href: https://github.com/iterative/shtab/releases
+      href: https://github.com/tqdm/shtab/releases
     - title: Issues
-      href: https://github.com/iterative/shtab/issues?q=
+      href: https://github.com/tqdm/shtab/issues?q=
   - title: Contributing
     name: contributing
     source: contributing.md
@@ -47,10 +47,10 @@ renderer:
   mkdocs_config:
     site_name: shtab documentation
     site_description: Automagic shell tab completion for Python CLI applications
-    site_url: https://docs.iterative.ai/shtab/
-    site_author: Iterative
-    repo_name: iterative/shtab
-    repo_url: https://github.com/iterative/shtab
+    site_url: https://tqdm.github.io/shtab/
+    site_author: Casper da Costa-Luis
+    repo_name: tqdm/shtab
+    repo_url: https://github.com/tqdm/shtab
     copyright: |
       &copy; Casper da Costa-Luis <a href="https://github.com/casperdcl">@casperdcl</a> 2021
 
@@ -58,8 +58,8 @@ renderer:
       generator: false
     theme:
       name: material
-      logo: https://github.com/iterative/shtab/raw/main/meta/logo.png
-      favicon: https://github.com/iterative/shtab/raw/main/meta/logo.png
+      logo: https://github.com/tqdm/shtab/raw/main/meta/logo.png
+      favicon: https://github.com/tqdm/shtab/raw/main/meta/logo.png
       features: [content.tabs.link]
       palette:
       - scheme: default

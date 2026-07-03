@@ -16,28 +16,25 @@ from argparse import (
 )
 from collections import defaultdict
 from functools import total_ordering
+from importlib.metadata import PackageNotFoundError, version
 from itertools import starmap
 from string import Template
-from typing import Any, Dict, List
+from typing import Any, Callable
 from typing import Optional as Opt
 from typing import Union
 
 # version detector. Precedence: installed dist, git, 'UNKNOWN'
 try:
-    from ._dist_ver import __version__
-except ImportError:
-    try:
-        from setuptools_scm import get_version
+    __version__ = version('shtab')
+except PackageNotFoundError:
+    __version__ = "UNKNOWN"
 
-        __version__ = get_version(root="..", relative_to=__file__)
-    except (ImportError, LookupError):
-        __version__ = "UNKNOWN"
 __all__ = ["complete", "add_argument_to", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR"]
 log = logging.getLogger(__name__)
 
-SUPPORTED_SHELLS: List[str] = []
-_SUPPORTED_COMPLETERS = {}
-CHOICE_FUNCTIONS: Dict[str, Dict[str, str]] = {
+SUPPORTED_SHELLS: list[str] = []
+_SUPPORTED_COMPLETERS: dict[str, Callable] = {}
+CHOICE_FUNCTIONS: dict[str, dict[str, str]] = {
     "file": {"bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f"},
     "directory": {"bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d"}}
 FILE = CHOICE_FUNCTIONS["file"]
@@ -801,7 +798,7 @@ complete ${prog} \\
 
 
 def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] = None,
-             preamble: Union[str, Dict[str, str]] = "", choice_functions: Opt[Any] = None) -> str:
+             preamble: Union[str, dict[str, str]] = "", choice_functions: Opt[Any] = None) -> str:
     """
     shell:
       bash/zsh/tcsh
@@ -827,7 +824,7 @@ def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] 
     )
 
 
-def completion_action(parent: Opt[ArgumentParser] = None, preamble: Union[str, Dict[str,
+def completion_action(parent: Opt[ArgumentParser] = None, preamble: Union[str, dict[str,
                                                                                     str]] = ""):
     class PrintCompletionAction(_ShtabPrintCompletionAction):
         def __call__(self, parser, namespace, values, option_string=None):
@@ -839,10 +836,10 @@ def completion_action(parent: Opt[ArgumentParser] = None, preamble: Union[str, D
 
 def add_argument_to(
     parser: ArgumentParser,
-    option_string: Union[str, List[str]] = "--print-completion",
+    option_string: Union[str, list[str]] = "--print-completion",
     help: str = "print shell completion script",
     parent: Opt[ArgumentParser] = None,
-    preamble: Union[str, Dict[str, str]] = "",
+    preamble: Union[str, dict[str, str]] = "",
 ):
     """
     option_string:

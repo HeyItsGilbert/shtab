@@ -12,6 +12,6 @@ class ShtabProcessor(PydocmdProcessor):
                                         flags=re.M)
         # fix code cross-references
         node.docstring.content = re.sub(r"<../(\S+)>",
-                                        r"[\1](https://github.com/iterative/shtab/tree/main/\1)",
+                                        r"[\1](https://github.com/tqdm/shtab/tree/main/\1)",
                                         node.docstring.content, flags=re.M)
         return super()._process(node)

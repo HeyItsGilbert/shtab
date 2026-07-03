@@ -42,5 +42,5 @@ The generated shell code itself is also meant to be readable.
 
 Tests and deployment are handled automatically by continuous integration. Simply
 tag a commit `v{major}.{minor}.{patch}` and wait for a draft release to appear
-at <https://github.com/iterative/shtab/releases>. Tidy up the draft's
+at <https://github.com/tqdm/shtab/releases>. Tidy up the draft's
 description before publishing it.

@@ -45,19 +45,19 @@ Choose one of:
 - ``pip install shtab``, or
 - ``conda install -c conda-forge shtab``
 
-See `operating system-specific instructions in the docs <https://docs.iterative.ai/shtab/#installation>`_.
+See `operating system-specific instructions in the docs <https://tqdm.github.io/shtab/#installation>`_.
 
 Usage
 -----
 
 There are two ways of using ``shtab``:
 
-- `CLI Usage <https://docs.iterative.ai/shtab/use/#cli-usage>`_: ``shtab``'s own CLI interface for external applications
+- `CLI Usage <https://tqdm.github.io/shtab/use/#cli-usage>`_: ``shtab``'s own CLI interface for external applications
 
   - may not require any code modifications whatsoever
   - end-users execute ``shtab your_cli_app.your_parser_object``
 
-- `Library Usage <https://docs.iterative.ai/shtab/use/#library-usage>`_: as a library integrated into your CLI application
+- `Library Usage <https://tqdm.github.io/shtab/use/#library-usage>`_: as a library integrated into your CLI application
 
   - adds a couple of lines to your application
   - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh,tcsh}``
@@ -66,12 +66,12 @@ There are two ways of using ``shtab``:
 Examples
 --------
 
-See `the docs for usage examples <https://docs.iterative.ai/shtab/use/#main.py>`_.
+See `the docs for usage examples <https://tqdm.github.io/shtab/use/#main.py>`_.
 
 FAQs
 ----
 
-Not working? Check out `frequently asked questions <https://docs.iterative.ai/shtab/#faqs>`_.
+Not working? Check out `frequently asked questions <https://tqdm.github.io/shtab/#faqs>`_.
 
 Alternatives
 ------------
@@ -95,23 +95,23 @@ Alternatives
 Contributions
 -------------
 
-Please do open `issues <https://github.com/iterative/shtab/issues>`_ & `pull requests <https://github.com/iterative/shtab/pulls>`_! Some ideas:
+Please do open `issues <https://github.com/tqdm/shtab/issues>`_ & `pull requests <https://github.com/tqdm/shtab/pulls>`_! Some ideas:
 
-- support ``fish`` (`#174 <https://github.com/iterative/shtab/pull/174>`_)
+- support ``fish`` (`#174 <https://github.com/tqdm/shtab/pull/174>`_)
 - support ``powershell``
 
 See
-`CONTRIBUTING.md <https://github.com/iterative/shtab/tree/main/CONTRIBUTING.md>`_
+`CONTRIBUTING.md <https://github.com/tqdm/shtab/tree/main/CONTRIBUTING.md>`_
 for more guidance.
 
 |Hits|
 
-.. |Logo| image:: https://github.com/iterative/shtab/raw/main/meta/logo.png
-.. |Tests| image:: https://img.shields.io/github/actions/workflow/status/iterative/shtab/test.yml?logo=github&label=tests
-   :target: https://github.com/iterative/shtab/actions
+.. |Logo| image:: https://github.com/tqdm/shtab/raw/main/meta/logo.png
+.. |Tests| image:: https://img.shields.io/github/actions/workflow/status/tqdm/shtab/test.yml?logo=github&label=tests
+   :target: https://github.com/tqdm/shtab/actions
    :alt: Tests
-.. |Coverage| image:: https://codecov.io/gh/iterative/shtab/branch/main/graph/badge.svg
-   :target: https://codecov.io/gh/iterative/shtab
+.. |Coverage| image:: https://codecov.io/gh/tqdm/shtab/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/tqdm/shtab
    :alt: Coverage
 .. |Conda| image:: https://img.shields.io/conda/v/conda-forge/shtab.svg?label=conda&logo=conda-forge
    :target: https://anaconda.org/conda-forge/shtab
@@ -122,6 +122,6 @@ for more guidance.
 .. |PyPI-Downloads| image:: https://img.shields.io/pypi/dm/shtab.svg?label=pypi%20downloads&logo=PyPI&logoColor=white
    :target: https://pepy.tech/project/shtab
    :alt: Downloads
-.. |Hits| image:: https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/iterative/shtab&a=hidden
-   :target: https://cgi.cdcl.ml/hits?q=shtab&a=plot&r=https://github.com/iterative/shtab&style=social
+.. |Hits| image:: https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/tqdm/shtab&a=hidden
+   :target: https://cgi.cdcl.ml/hits?q=shtab&a=plot&r=https://github.com/tqdm/shtab&style=social
    :alt: Hits

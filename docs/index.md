@@ -1,8 +1,8 @@
-![shtab](https://static.iterative.ai/img/shtab/banner.png)
+![shtab](https://tqdm.github.io/img/shtab-banner.png)
 
 [![Downloads](https://img.shields.io/pypi/dm/shtab.svg?label=pypi%20downloads&logo=PyPI&logoColor=white)](https://pepy.tech/project/shtab)
-[![Tests](https://img.shields.io/github/actions/workflow/status/iterative/shtab/test.yml?logo=github&label=tests)](https://github.com/iterative/shtab/actions)
-[![Coverage](https://codecov.io/gh/iterative/shtab/branch/main/graph/badge.svg)](https://codecov.io/gh/iterative/shtab)
+[![Tests](https://img.shields.io/github/actions/workflow/status/tqdm/shtab/test.yml?logo=github&label=tests)](https://github.com/tqdm/shtab/actions)
+[![Coverage](https://codecov.io/gh/tqdm/shtab/branch/main/graph/badge.svg)](https://codecov.io/gh/tqdm/shtab)
 [![PyPI](https://img.shields.io/pypi/v/shtab.svg?label=pip&logo=PyPI&logoColor=white)](https://pypi.org/project/shtab)
 [![conda-forge](https://img.shields.io/conda/v/conda-forge/shtab.svg?label=conda&logo=conda-forge)](https://anaconda.org/conda-forge/shtab)
 
@@ -109,14 +109,14 @@ application. Use `-u, --error-unimportable` to noisily complain.
 
 Please do open [issues][GH-issue] & [pull requests][GH-pr]! Some ideas:
 
-- support `fish` ([#174](https://github.com/iterative/shtab/pull/174))
+- support `fish` ([#174](https://github.com/tqdm/shtab/pull/174))
 - support `powershell`
 
 See
-[CONTRIBUTING.md](https://github.com/iterative/shtab/tree/main/CONTRIBUTING.md)
+[CONTRIBUTING.md](https://github.com/tqdm/shtab/tree/main/CONTRIBUTING.md)
 for more guidance.
 
-[![Hits](https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/iterative/shtab&a=hidden)](https://cgi.cdcl.ml/hits?q=shtab&a=plot&r=https://github.com/iterative/shtab&style=social)
+[![Hits](https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/tqdm/shtab&a=hidden)](https://cgi.cdcl.ml/hits?q=shtab&a=plot&r=https://github.com/tqdm/shtab&style=social)
 
-[GH-issue]: https://github.com/iterative/shtab/issues
-[GH-pr]: https://github.com/iterative/shtab/pulls
+[GH-issue]: https://github.com/tqdm/shtab/issues
+[GH-pr]: https://github.com/tqdm/shtab/pulls
