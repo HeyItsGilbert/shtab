@@ -13,7 +13,7 @@ jobs:
       matrix:
         python: [3.9, 3.14]
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
       with: {fetch-depth: 0}
     - uses: actions/setup-python@v6
       with:
@@ -21,7 +21,7 @@ jobs:
     - name: Install
       run: pip install -U -e .[dev]
     - run: pytest
-    - uses: codecov/codecov-action@v5
+    - uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
   deploy:
@@ -33,12 +33,14 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
-      with: {fetch-depth: 0}
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GH_TOKEN || github.token }}
     - uses: actions/setup-python@v6
       with: {python-version: '3.x'}
     - id: dist
-      uses: casperdcl/deploy-pypi@v2
+      uses: casperdcl/deploy-pypi@v3
       with:
         build: true
         requirements: 'build twine packaging>=24.2' # https://github.com/pypa/twine/issues/1216
