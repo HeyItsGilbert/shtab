@@ -2,9 +2,7 @@
 __pycache__/
 
 # Packages
-/MANIFEST.in
 /*.egg*/
-/shtab/_dist_ver.py
 /build/
 /dist/
 /docs/build/

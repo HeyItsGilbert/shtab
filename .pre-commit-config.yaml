@@ -26,6 +26,14 @@ repos:
     entry: TODO
     types: [text]
     exclude: ^(.pre-commit-config.yaml|.github/workflows/test.yml)$
+  - id: pytest
+    name: pytest quiet
+    language: python
+    entry: pytest
+    args: [-qq]
+    types: [python]
+    pass_filenames: false
+    additional_dependencies: [pytest-cov, pytest-timeout]
 - repo: https://github.com/PyCQA/flake8
   rev: 7.3.0
   hooks:
@@ -38,7 +46,11 @@ repos:
     - flake8-debugger
     - flake8-isort
     - flake8-pyproject
-    - flake8-string-format
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.21.2
+  hooks:
+  - id: pyupgrade
+    args: [--py39-plus]
 - repo: https://github.com/pre-commit/mirrors-mypy
   rev: v2.1.0
   hooks:

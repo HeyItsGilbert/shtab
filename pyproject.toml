@@ -3,8 +3,6 @@ requires = ["setuptools>=77", "setuptools_scm[toml]>=3.4"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "shtab/_dist_ver.py"
-write_to_template = "__version__ = '{version}'\n"
 
 [tool.setuptools.packages.find]
 exclude = ["docs", "tests", "examples"]
@@ -26,7 +24,7 @@ description = "Automagic shell tab completion for Python CLI applications"
 readme = "README.rst"
 requires-python = ">=3.9"
 keywords = ["tab", "complete", "completion", "shell", "bash", "zsh", "argparse"]
-license = "Apache-2.0"
+license = {text = "MPL-2.0"}
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
@@ -117,3 +115,8 @@ log_level = "DEBUG"
 python_files = ["test_*.py"]
 testpaths = ["tests"]
 addopts = "-v --tb=short -rxs -W=error --durations=0 --cov=shtab --cov-report=term-missing --cov-report=xml"
+
+[tool.coverage.run]
+branch = true
+[tool.coverage.report]
+show_missing = true
