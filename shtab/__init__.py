@@ -509,7 +509,8 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
     def format_positional(opt, parser):
         get_help = parser._get_formatter()._expand_help
         return '"{nargs}:{help}:{pattern}"'.format(
-            nargs={ONE_OR_MORE: "(*)", ZERO_OR_MORE: "(*):", REMAINDER: "(-)*"}.get(opt.nargs, ""),
+            nargs={ONE_OR_MORE: "(*)", ZERO_OR_MORE: "(*):",
+                   REMAINDER: "(-)*:"}.get(opt.nargs, ""),
             help=escape_zsh((get_help(opt) if opt.help else opt.dest).strip().split("\n")[0]),
             pattern=complete2pattern(opt.complete, "zsh", choice_type2fn) if hasattr(
                 opt, "complete") else
@@ -604,7 +605,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
         return f"""\
 {prefix}() {{
   local context state line \
-curcontext="$curcontext" one_or_more='(*)' remainder='(-)*' default='*::: :->{name}'
+curcontext="$curcontext" one_or_more='(*)' remainder='(-)*:' default='*::: :->{name}'
 
   # Add default positional/remainder specs only if none exist, and only once per session
   if (( ! {prefix}_defaults_added )); then
