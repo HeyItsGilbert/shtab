@@ -119,7 +119,7 @@ for more guidance.
 .. |PyPI| image:: https://img.shields.io/pypi/v/shtab.svg?label=pip&logo=PyPI&logoColor=white
    :target: https://pypi.org/project/shtab
    :alt: PyPI
-.. |PyPI-Downloads| image:: https://img.shields.io/pypi/dm/shtab.svg?label=pypi%20downloads&logo=PyPI&logoColor=white
+.. |PyPI-Downloads| image:: https://static.pepy.tech/personalized-badge/shtab?left_text=downloads%2Fmonth
    :target: https://pepy.tech/project/shtab
    :alt: Downloads
 .. |Hits| image:: https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/tqdm/shtab&a=hidden
