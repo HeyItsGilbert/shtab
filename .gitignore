@@ -11,4 +11,3 @@ __pycache__/
 # Unit test / coverage reports
 /.coverage*
 /coverage.xml
-/.pytest_cache/

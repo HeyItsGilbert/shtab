@@ -18,9 +18,9 @@
     - `bash`
     - `zsh`
     - `tcsh`
--   Supports
-    - [argparse](https://docs.python.org/library/argparse)
-    - [docopt](https://pypi.org/project/docopt) (via [argopt](https://pypi.org/project/argopt))
+- Supports
+    - [`argparse`](https://docs.python.org/library/argparse)
+    - [`docopt`](https://pypi.org/project/docopt) (via [`argopt`](https://pypi.org/project/argopt))
 - Supports arguments, options and subparsers
 - Supports choices (e.g. `--say={hello,goodbye}`)
 - Supports file and directory path completion

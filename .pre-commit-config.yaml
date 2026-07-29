@@ -27,13 +27,18 @@ repos:
     types: [text]
     exclude: ^(.pre-commit-config.yaml|.github/workflows/test.yml)$
   - id: pytest
-    name: pytest quiet
+    name: pytest
     language: python
-    entry: pytest
-    args: [-qq]
+    entry: env PYTHONPATH=. pytest
+    args: [--cov=shtab, --cov-fail-under=85, -vv]
     types: [python]
     pass_filenames: false
-    additional_dependencies: [pytest-cov, pytest-timeout]
+    additional_dependencies: [pytest-cov]
+- repo: https://github.com/PyCQA/bandit
+  rev: 1.9.4
+  hooks:
+  - id: bandit
+    args: [-c, pyproject.toml]
 - repo: https://github.com/PyCQA/flake8
   rev: 7.3.0
   hooks:
@@ -68,4 +73,3 @@ repos:
   - id: isort
 ci:
   autoupdate_schedule: monthly
-  skip: [flake8]

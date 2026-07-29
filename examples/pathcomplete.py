@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-`argparse`-based CLI app using
-`add_argument().complete = shtab.(FILE|DIR)` for file/dir tab completion.
+`argparse`-based CLI app with file/dir tab completion.
 
+Uses `add_argument().complete = shtab.(FILE|DIR)`.
 See `customcomplete.py` for a more advanced version.
 """
 import argparse

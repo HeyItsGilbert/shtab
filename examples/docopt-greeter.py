@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""Greetings and partings.
+"""
+Greetings and partings.
 
 Usage:
   greeter [options] [<you>] [<me>]

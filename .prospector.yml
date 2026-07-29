@@ -1,0 +1,12 @@
+pydocstyle:
+  disable:
+    - D204
+    - D205
+    - D212
+    - D413
+    - D415
+pylint:
+  run: false
+mccabe:
+  options:
+    max-complexity: 25

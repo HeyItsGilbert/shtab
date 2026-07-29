@@ -1,19 +1,8 @@
 import logging
 import re
-from argparse import (
-    ONE_OR_MORE,
-    REMAINDER,
-    SUPPRESS,
-    ZERO_OR_MORE,
-    Action,
-    ArgumentParser,
-    _AppendAction,
-    _AppendConstAction,
-    _CountAction,
-    _HelpAction,
-    _StoreConstAction,
-    _VersionAction,
-)
+from argparse import (ONE_OR_MORE, REMAINDER, SUPPRESS, ZERO_OR_MORE, Action, ArgumentParser,
+                      _AppendAction, _AppendConstAction, _CountAction, _HelpAction,
+                      _StoreConstAction, _VersionAction)
 from collections import defaultdict
 from functools import total_ordering
 from importlib.metadata import PackageNotFoundError, version
@@ -161,7 +150,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
         )
 
     def recurse(parser, prefix):
-        """recurse through subparsers, appending to the return lists"""
+        """Recurse through subparsers, appending to the return lists"""
         subparsers = []
         option_strings = []
         compgens = []
@@ -837,7 +826,7 @@ def completion_action(parent: Opt[ArgumentParser] = None, preamble: Union[str, d
 def add_argument_to(
     parser: ArgumentParser,
     option_string: Union[str, list[str]] = "--print-completion",
-    help: str = "print shell completion script",
+    help: str = "print shell completion script",                    # pylint: disable=W0622
     parent: Opt[ArgumentParser] = None,
     preamble: Union[str, dict[str, str]] = "",
 ):
@@ -853,8 +842,11 @@ def add_argument_to(
     kwargs = {
         "choices": SUPPORTED_SHELLS, "default": None, "help": help,
         "action": completion_action(parent, preamble)}
+
     if option_string[0][0] != "-": # subparser mode
         kwargs.update(default=SUPPORTED_SHELLS[0], nargs="?")
-        assert parent is not None, "subcommand mode: parent required"
+        if parent is None:
+            raise ValueError("subcommand mode: parent required")
+
     parser.add_argument(*option_string, **kwargs)
     return parser

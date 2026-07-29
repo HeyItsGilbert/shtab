@@ -50,9 +50,6 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: Implementation",
-    "Programming Language :: Python :: Implementation :: IronPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Unix Shell",
     "Topic :: Desktop Environment",
     "Topic :: Education :: Computer Aided Instruction (CAI)",
@@ -73,14 +70,18 @@ classifiers = [
     "Topic :: Utilities"]
 
 [project.optional-dependencies]
-dev = ["pytest>=6", "pytest-cov", "pytest-timeout"]
+dev = ["pytest>=6", "pytest-cov"]
 
 [project.scripts]
 shtab = "shtab.main:main"
 
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B604"]
+
 [tool.flake8]
 max_line_length = 99
-extend_ignore = ["E261", "P101"]
+extend_ignore = ["E261", "N400", "P101"]
 exclude = [".git", "__pycache__", "build", "dist", ".eggs"]
 
 [tool.yapf]
@@ -96,7 +97,6 @@ split_before_closing_bracket = false
 blank_line_before_nested_class_or_def = false
 
 [tool.isort]
-profile = "black"
 line_length = 99
 known_first_party = ["shtab", "tests"]
 
@@ -107,11 +107,10 @@ show_error_codes = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-timeout = 5
 log_level = "DEBUG"
 python_files = ["test_*.py"]
 testpaths = ["tests"]
-addopts = "-v --tb=short -rxs -W=error --durations=0 --cov=shtab --cov-report=term-missing --cov-report=xml"
+addopts = "-v --tb=short -rxs -W=error --durations=0"
 
 [tool.coverage.run]
 branch = true

@@ -3,7 +3,8 @@
 shtab
 =====
 
-|PyPI-Downloads| |Tests| |Coverage| |PyPI| |Conda|
+|PyPI-Downloads| |Tests| |Coverage| |Quality|
+|PyPI| |Conda|
 
 - What: Automatically generate shell tab completion scripts for Python CLI apps
 - Why: Speed & correctness. Alternatives like
@@ -113,6 +114,9 @@ for more guidance.
 .. |Coverage| image:: https://codecov.io/gh/tqdm/shtab/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/tqdm/shtab
    :alt: Coverage
+.. |Quality| image:: https://app.codacy.com/project/badge/Grade/0ce50da5c6e04236a891b092c7012753
+   :target: https://app.codacy.com/gh/tqdm/shtab/dashboard
+   :alt: Quality
 .. |Conda| image:: https://img.shields.io/conda/v/conda-forge/shtab.svg?label=conda&logo=conda-forge
    :target: https://anaconda.org/conda-forge/shtab
    :alt: conda-forge
