@@ -203,6 +203,19 @@ def test_custom_complete(shell, caplog):
     assert not caplog.record_tuples
 
 
+def test_zsh_non_sequence_choices(caplog):
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--mapping", choices={"one": 1, "two": 2})
+    parser.add_argument("posA", choices={"three"})
+
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell="zsh")
+
+    assert ':mapping:(one two)"' in completion
+    assert '":posA:(three)"' in completion
+    assert not caplog.record_tuples
+
+
 def test_zsh_remainder_custom_complete_has_optional_message_colon(caplog):
     parser = ArgumentParser(prog="test")
     parser.add_argument("command", nargs=1).complete = {"zsh": "{_command_names -e}"}
