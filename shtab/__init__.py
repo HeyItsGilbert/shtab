@@ -814,9 +814,6 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
         log_prefix = "| " * len(path)
         log.debug("%sParser @ %d", log_prefix, len(path))
 
-        def _escape(text):
-            return text.replace('"', r"\"")
-
         for optional in cparser._get_optional_actions():
             log.debug("%s| Optional: %s", log_prefix, optional.dest)
 
@@ -834,9 +831,9 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     cond_level = f"; and not __fish_seen_subcommand_from {same_level}"
 
                 cond = '; and '.join(cond_path) + cond_level
-                output.append(f"-n \"{cond}\"")
+                output.append(f'-n "{cond}"')
             else:
-                output.append("-n \"__fish_use_subcommand\"")
+                output.append('-n "__fish_use_subcommand"')
 
             for optional_str in optional.option_strings:
                 log.debug("%s| | %s", log_prefix, optional_str)
@@ -854,14 +851,14 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
 
             # Offer the different choices
             if optional.choices:
-                output.append(f"-r -a \"{' '.join(map(str, optional.choices))}\"")
+                output.append(f'-r -a "{join(map(str, optional.choices))}"')
             elif hasattr(optional, "complete"):
                 complete_fn = complete2pattern(optional.complete, 'fish', choice_type2fn)
                 if complete_fn:
-                    output.append(f"-r -a \"{complete_fn}\"")
+                    output.append(f'-r -a "{complete_fn}"')
 
             if optional.help:
-                output.append(f"-d \"{_escape(optional.help)}\"")
+                output.append(f'-d {quote(optional.help)}')
 
             completions.append(' '.join(output))
 
@@ -891,16 +888,16 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                             cond_level = f"; and not __fish_seen_subcommand_from {same_level}"
 
                         cond = '; and '.join(cond_path) + cond_level
-                        output.append(f"-n \"{cond}\"")
+                        output.append(f'-n "{cond}"')
                     else:
-                        output.append("-n \"__fish_use_subcommand\"")
+                        output.append('-n "__fish_use_subcommand"')
 
                     output.append("-f")
                     output.append(f"-a {subcmd}")
 
                     if subparser.description:
                         desc = subparser.description.strip().split("\n")[0]
-                        output.append(f'-d "{quote(desc)}"')
+                        output.append(f'-d {quote(desc)}')
 
                     completions.append(' '.join(output))
 
@@ -913,16 +910,16 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
 
                 if len(path) > 0:
                     cond = '; and '.join([f"__fish_seen_subcommand_from {cmd}" for cmd in path])
-                    output.append(f"-n \"{cond}\"")
+                    output.append(f'-n "{cond}"')
                 else:
-                    output.append("-n \"__fish_use_subcommand\"")
+                    output.append('-n "__fish_use_subcommand"')
 
                 # Allow file propositions specifically for this argument
                 output.append("-F")
 
                 if positional.help:
                     desc = positional.help.strip().split("\n")[0]
-                    output.append(f'-d "{quote(desc)}"')
+                    output.append(f'-d {quote(desc)}')
 
                 completions.append(' '.join(output))
 
