@@ -10,7 +10,7 @@ import shtab  # for completion magic
 
 TXT_FILE = {
     "bash": "_shtab_greeter_compgen_TXTFiles", "zsh": "_files -g '(*.txt|*.TXT)'",
-    "tcsh": "f:*.txt"}
+    "tcsh": "f:*.txt", "fish": "(__fish_complete_suffix .txt)"}
 PREAMBLE = {
     "bash": """
 # $1=COMP_WORDS[1]

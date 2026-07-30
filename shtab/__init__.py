@@ -28,7 +28,7 @@ CHOICE_FUNCTIONS: dict[str, dict[str, str]] = {
     "file": {"bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f", "fish": ""},
     "directory": {
         "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
-        "fish": "__fish_complete_directories"}}
+        "fish": "(__fish_complete_directories)"}}
 FILE = CHOICE_FUNCTIONS["file"]
 DIRECTORY = DIR = CHOICE_FUNCTIONS["directory"]
 FLAG_OPTION = (
@@ -851,11 +851,11 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
 
             # Offer the different choices
             if optional.choices:
-                output.append(f'-r -a "{join(map(str, optional.choices))}"')
+                output.append(f'-rka "{join(map(str, optional.choices))}"')
             elif hasattr(optional, "complete"):
                 complete_fn = complete2pattern(optional.complete, 'fish', choice_type2fn)
                 if complete_fn:
-                    output.append(f'-r -a "{complete_fn}"')
+                    output.append(f'-rka "{complete_fn}"')
 
             if optional.help:
                 output.append(f'-d {quote(optional.help)}')

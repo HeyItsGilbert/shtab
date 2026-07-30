@@ -143,7 +143,7 @@ def test_prog_scripts(shell, caplog, capsys):
             'complete -c script.py -e', 'complete -c script.py -f',
             f"{start} -s h -l help -f -d 'show this help message and exit'",
             f"{start} -l version -f -d 'show program'\"'\"'s version number and exit'",
-            f'{start} -s s -l shell -f -r -a "bash zsh tcsh fish"',
+            f'{start} -s s -l shell -f -rka "bash zsh tcsh fish"',
             f"{start} -s o -l output -F -d 'output file (- for stdout)'",
             f"{start} -l prefix -f -d 'prepended to generated functions to avoid clashes'",
             f"{start} -l preamble -f -d 'prepended to generated script'",
@@ -151,7 +151,7 @@ def test_prog_scripts(shell, caplog, capsys):
             f"{start} -s u -l error-unimportable -f -d"
             " 'raise errors if `parser` is not found in $PYTHONPATH'",
             f"{start} -l verbose -f -d 'Log debug information'",
-            f'{start} -l print-own-completion -f -r -a "bash zsh tcsh fish" -d'
+            f'{start} -l print-own-completion -f -rka "bash zsh tcsh fish" -d'
             " 'print shtab'\"'\"'s own completion'",
             f"{start} -F -d 'importable parser (or function returning parser)'"]
     else:
