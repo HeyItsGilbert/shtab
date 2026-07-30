@@ -153,7 +153,7 @@ def test_prog_scripts(shell, caplog, capsys):
             f'{start} -s u -l error-unimportable -f -d {help_unimportable}',
             f'{start} -l verbose -f -d "Log debug information"',
             f'{start} -l print-own-completion -f -r -a {help_completion}',
-            f'{start} -F -d "importable parser (or function returning parser)"']
+            f"{start} -F -d \"'importable parser (or function returning parser)'\""]
     else:
         raise NotImplementedError(shell)
 

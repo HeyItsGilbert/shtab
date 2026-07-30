@@ -788,6 +788,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
 
     root_prefix:
       ignored (fish has no support for functions)
+
+    See `complete` for other arguments.
     """
 
     prog = parser.prog
@@ -800,7 +802,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     if choice_functions:
         choice_type2fn.update(choice_functions)
 
-    def recurse_parser(cparser: ArgumentParser, path: List[str], same_level: str):
+    def recurse_parser(cparser: ArgumentParser, path: list[str], same_level: str):
         """
         path:
           the list of subcommands that led to current
@@ -897,7 +899,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output.append(f"-a {subcmd}")
 
                     if subparser.description:
-                        output.append(f"-d \"{_escape(subparser.description.split('\n')[0])}\"")
+                        desc = subparser.description.strip().split("\n")[0]
+                        output.append(f'-d "{quote(desc)}"')
 
                     completions.append(' '.join(output))
 
@@ -918,7 +921,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 output.append("-F")
 
                 if positional.help:
-                    output.append(f"-d \"{_escape(positional.help.split('\n')[0])}\"")
+                    desc = positional.help.strip().split("\n")[0]
+                    output.append(f'-d "{quote(desc)}"')
 
                 completions.append(' '.join(output))
 
