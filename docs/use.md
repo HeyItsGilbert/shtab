@@ -24,18 +24,18 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 !!! info
     If both shtab and the module it's completing are globally importable, eager
     usage is an option. "Eager" means automatically updating completions each
-    time a terminal is opened.
+    time a terminal is opened, and likely should not use the `-u, --error-unimportable` flag.
 
 === "bash"
 
+    See <https://github.com/scop/bash-completion/blob/main/doc/configuration.md>, e.g.:
+
     ```sh
-    shtab --shell=bash shtab.main.get_main_parser --error-unimportable \
+    shtab -u --shell=bash shtab.main.get_main_parser \
       | sudo tee "$BASH_COMPLETION_COMPAT_DIR"/shtab
     ```
 
-=== "Eager bash"
-
-    There are a few options:
+    Eager:
 
     ```sh
     # Install locally
@@ -62,14 +62,14 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 
     ```sh
     # note the underscore `_` prefix
-    shtab --shell=zsh shtab.main.get_main_parser --error-unimportable \
+    shtab -u --shell=zsh shtab.main.get_main_parser \
       | sudo tee /usr/local/share/zsh/site-functions/_shtab
     ```
 
-=== "Eager zsh"
+    Eager:
 
-    To be more eager, place the generated script somewhere in `$fpath`. For
-    example, add these lines to the top of `~/.zshrc`:
+    Place the generated script somewhere in `$fpath`.
+    For example, add these lines to the top of `~/.zshrc`:
 
     ```sh
     mkdir -p ~/.zsh/completions
@@ -80,13 +80,11 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 === "tcsh"
 
     ```sh
-    shtab --shell=tcsh shtab.main.get_main_parser --error-unimportable \
+    shtab -u --shell=tcsh shtab.main.get_main_parser \
       | sudo tee /etc/profile.d/shtab.completion.csh
     ```
 
-=== "Eager tcsh"
-
-    There are a few options:
+    Eager:
 
     ```sh
     # Install locally
@@ -96,6 +94,20 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
     # Install system-wide
     echo 'shtab --shell=tcsh shtab.main.get_main_parser | source /dev/stdin' \
       | sudo tee /etc/profile.d/eager-completion.csh
+    ```
+
+=== "fish"
+
+    See <https://fishshell.com/docs/current/completions.html#where-to-put-completions>, e.g.:
+
+    ```sh
+    # Install locally
+    shtab -u --shell=fish shtab.main.get_main_parser \
+      -o ~/.config/fish/completions/shtab.fish
+
+    # Install system-wide
+    shtab -u --shell=fish shtab.main.get_main_parser \
+      | sudo tee /usr/share/fish/vendor_completions.d/shtab.fish
     ```
 
 !!! tip
@@ -143,6 +155,13 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
     ```sh
     shtab --shell=tcsh -u MY_PROG.command.main.get_main_parser \
       | sudo tee /etc/profile.d/MY_PROG.completion.csh
+    ```
+
+=== "fish"
+
+    ```sh
+    shtab --shell=fish -u MY_PROG.command.main.get_main_parser \
+      | sudo tee /usr/share/fish/vendor_completions.d/MY_PROG.fish
     ```
 
 ## Library Usage
