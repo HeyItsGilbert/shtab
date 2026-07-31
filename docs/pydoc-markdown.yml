@@ -5,9 +5,6 @@ processors:
 - type: filter
 - type: pydoc_markdown_shtab.ShtabProcessor
 - type: crossref
-hooks:
-  pre-render:
-  - sed 's#](./#](https://github.com/tqdm/shtab/tree/main/#g' ../CONTRIBUTING.md > contributing.md
 renderer:
   type: mkdocs
   markdown:
