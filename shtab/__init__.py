@@ -794,9 +794,6 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     prog = parser.prog
     completions = []
 
-    if preamble:
-        preamble = f"# Custom Preamble\n{preamble}\n# End Custom Preamble\n"
-
     choice_type2fn = {k: v["fish"] for k, v in CHOICE_FUNCTIONS.items()}
     if choice_functions:
         choice_type2fn.update(choice_functions)
@@ -888,7 +885,7 @@ complete -c ${prog} -f
 
 ${completions}
 """).safe_substitute(
-        preamble=preamble,
+        preamble=f"# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
         prog=parser.prog,
         completions='\n'.join(completions),
     )
