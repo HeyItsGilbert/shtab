@@ -27,20 +27,17 @@ renderer:
   - title: Reference
     name: ref
     contents: [shtab.complete, shtab.add_argument_to]
-  - title: External Links
-    children:
-    - title: Source Code
-      href: https://github.com/tqdm/shtab
-    - title: Changelog
-      href: https://github.com/tqdm/shtab/releases
-    - title: Issues
-      href: https://github.com/tqdm/shtab/issues?q=
-  - title: Contributing
-    name: contributing
-    source: contributing.md
-  - title: Licence
-    name: licence
-    source: ../LICENCE
+  # external links
+  - title: ↗ Source Code
+    href: https://github.com/tqdm/shtab
+  - title: ↗ Changelog
+    href: https://github.com/tqdm/shtab/releases
+  - title: ↗ Issues
+    href: https://github.com/tqdm/shtab/issues
+  - title: ↗ Contributing
+    href: https://github.com/tqdm/shtab/tree/main/CONTRIBUTING.md
+  - title: ↗ Licence
+    href: https://github.com/tqdm/shtab/tree/main/LICENCE
   mkdocs_config:
     site_name: shtab documentation
     site_description: Automagic shell tab completion for Python CLI applications

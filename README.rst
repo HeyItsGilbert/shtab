@@ -100,7 +100,7 @@ Contributions
 
 Please do open `issues <https://github.com/tqdm/shtab/issues>`_ & `pull requests <https://github.com/tqdm/shtab/pulls>`_! Some ideas:
 
-- support ``powershell``
+- support ``powershell`` (#212)
 - support ``python -m`` prefix (#55)
 
 See
@@ -131,7 +131,7 @@ for more guidance.
    :target: https://pepy.tech/project/shtab
    :alt: Downloads
 .. |git-fame| image:: https://git-fame.cdcl.ml/gh/tqdm/shtab?min=1&w=1&M=1&C=1&enum=1
-   :alt: git-fame.cdcl.ml/gh/tqdm/shtab
+   :alt: git-fame
    :target: https://git-fame.cdcl.ml/gh/tqdm/shtab?w=1&M=1&C=1&enum=1
 .. |Hits| image:: https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/tqdm/shtab&a=hidden
    :target: https://cgi.cdcl.ml/hits?q=shtab&a=plot&r=https://github.com/tqdm/shtab&style=social
