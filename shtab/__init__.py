@@ -791,7 +791,6 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
 
     See `complete` for other arguments.
     """
-
     prog = parser.prog
     completions = []
 
@@ -801,6 +800,25 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     choice_type2fn = {k: v["fish"] for k, v in CHOICE_FUNCTIONS.items()}
     if choice_functions:
         choice_type2fn.update(choice_functions)
+
+    def start_output(path, same_level):
+        output = ["complete", "-c", prog]
+        if len(path) > 0:
+            cond = '; and '.join(f"__fish_seen_subcommand_from {cmd}" for cmd in path)
+            if same_level != "":
+                cond += f"; and not __fish_seen_subcommand_from {same_level}"
+            output.append(f'-n "{cond}"')
+        else:
+            output.append('-n "__fish_use_subcommand"')
+        return output
+
+    def get_specials(arg):
+        if arg.choices:
+            yield f'-rka "{join(map(str, arg.choices))}"'
+        elif hasattr(arg, 'complete'):
+            complete_fn = complete2pattern(arg.complete, 'fish', choice_type2fn)
+            if complete_fn:
+                yield f'-rka "{complete_fn}"'
 
     def recurse_parser(cparser: ArgumentParser, path: list[str], same_level: str):
         """
@@ -813,28 +831,11 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
         """
         log_prefix = "| " * len(path)
         log.debug("%sParser @ %d", log_prefix, len(path))
-
         for optional in cparser._get_optional_actions():
             log.debug("%s| Optional: %s", log_prefix, optional.dest)
-
             if optional.help == SUPPRESS:
                 continue
-
-            output = ["complete", "-c", prog]
-
-            if len(path) > 0:
-                # Show option only if in subcommand path, and no subcommand on other level is shown
-                cond_path = [f"__fish_seen_subcommand_from {cmd}" for cmd in path]
-
-                cond_level = ""
-                if same_level != "":
-                    cond_level = f"; and not __fish_seen_subcommand_from {same_level}"
-
-                cond = '; and '.join(cond_path) + cond_level
-                output.append(f'-n "{cond}"')
-            else:
-                output.append('-n "__fish_use_subcommand"')
-
+            output = start_output(path, same_level)
             for optional_str in optional.option_strings:
                 log.debug("%s| | %s", log_prefix, optional_str)
                 if optional_str.startswith("--"):
@@ -849,70 +850,31 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
             else:
                 output.append("-F")
 
-            # Offer the different choices
-            if optional.choices:
-                output.append(f'-rka "{join(map(str, optional.choices))}"')
-            elif hasattr(optional, "complete"):
-                complete_fn = complete2pattern(optional.complete, 'fish', choice_type2fn)
-                if complete_fn:
-                    output.append(f'-rka "{complete_fn}"')
-
+            output.extend(get_specials(optional))
             if optional.help:
                 output.append(f'-d {quote(optional.help)}')
-
             completions.append(' '.join(output))
-
         for positional in cparser._get_positional_actions():
             if positional.help == SUPPRESS:
                 continue
-
             log.debug("%s| Positional #%d: %s", log_prefix, len(path) + 1, positional.dest)
-
-            if isinstance(positional.choices, dict):
-                # Positional subcommand
+            if isinstance(positional.choices, dict): # Positional subcommand
                 public = get_public_subcommands(positional)
                 same_level = ' '.join(public)
-
                 for subcmd, subparser in positional.choices.items():
                     if subcmd not in public:
                         continue
-
                     log.debug("%s| | SubParser: %s", log_prefix, subcmd)
-                    output = ["complete", "-c", prog]
-
-                    if len(path) > 0:
-                        cond_path = [f"__fish_seen_subcommand_from {cmd}" for cmd in path]
-
-                        cond_level = ""
-                        if same_level != "":
-                            cond_level = f"; and not __fish_seen_subcommand_from {same_level}"
-
-                        cond = '; and '.join(cond_path) + cond_level
-                        output.append(f'-n "{cond}"')
-                    else:
-                        output.append('-n "__fish_use_subcommand"')
-
-                    output.append("-f")
-                    output.append(f"-a {subcmd}")
-
+                    output = start_output(path, same_level)
+                    output.append(f"-fa {subcmd}")
                     if subparser.description:
                         desc = subparser.description.strip().split("\n")[0]
                         output.append(f'-d {quote(desc)}')
-
                     completions.append(' '.join(output))
-
                     same_level_without_current = ' '.join(filter(lambda c: c != subcmd, public))
                     recurse_parser(subparser, path + [subcmd], same_level_without_current)
-
-            else:
-                # Simple argument (file, name...)
-                output = ["complete", "-c", prog]
-
-                if len(path) > 0:
-                    cond = '; and '.join([f"__fish_seen_subcommand_from {cmd}" for cmd in path])
-                    output.append(f'-n "{cond}"')
-                else:
-                    output.append('-n "__fish_use_subcommand"')
+            else:                                    # Simple argument (file, name...)
+                output = start_output(path, "")
 
                 # Allow file propositions specifically for this argument
                 output.append("-F")
@@ -920,7 +882,6 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 if positional.help:
                     desc = positional.help.strip().split("\n")[0]
                     output.append(f'-d {quote(desc)}')
-
                 completions.append(' '.join(output))
 
     recurse_parser(parser, [], "")
