@@ -475,20 +475,24 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
     def is_opt_multiline(opt):
         return isinstance(opt, OPTION_MULTI)
 
+    def is_opt_flag(opt):
+        return isinstance(opt, FLAG_OPTION) or opt.nargs == 0
+
     def format_optional(opt, parser):
         get_help = parser._get_formatter()._expand_help
-        return (('{nargs}{options}"[{help}]"' if isinstance(
-            opt, FLAG_OPTION) else '{nargs}{options}"[{help}]:{dest}:{pattern}"').format(
-                nargs=('"(- : *)"' if is_opt_end(opt) else '"*"' if is_opt_multiline(opt) else ""),
-                options=("{{{}}}".format(",".join(opt.option_strings)) if len(opt.option_strings)
-                         > 1 else '"{}"'.format("".join(opt.option_strings))),
-                help=quote(get_help(opt) if opt.help else ""),
-                dest=opt.dest,
-                pattern=complete2pattern(opt.complete, "zsh", choice_type2fn) if hasattr(
-                    opt, "complete") else
-                (choice_type2fn[opt.choices[0].type] if isinstance(opt.choices[0], Choice) else
-                 "({})".format(" ".join(map(str, opt.choices)))) if opt.choices else "",
-            ).replace('""', ""))
+        return (('{nargs}{options}"[{help}]"'
+                 if is_opt_flag(opt) else '{nargs}{options}"[{help}]:{dest}:{pattern}"').format(
+                     nargs=('"(- : *)"'
+                            if is_opt_end(opt) else '"*"' if is_opt_multiline(opt) else ""),
+                     options=("{{{}}}".format(",".join(opt.option_strings)) if len(
+                         opt.option_strings) > 1 else '"{}"'.format("".join(opt.option_strings))),
+                     help=quote(get_help(opt) if opt.help else ""),
+                     dest=opt.dest,
+                     pattern=complete2pattern(opt.complete, "zsh", choice_type2fn) if hasattr(
+                         opt, "complete") else
+                     (choice_type2fn[opt.choices[0].type] if isinstance(opt.choices[0], Choice)
+                      else "({})".format(" ".join(map(str, opt.choices)))) if opt.choices else "",
+                 ).replace('""', ""))
 
     def format_positional(opt, parser):
         get_help = parser._get_formatter()._expand_help

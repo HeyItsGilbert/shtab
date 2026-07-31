@@ -2,7 +2,7 @@
 import logging
 import os
 import subprocess
-from argparse import ArgumentParser
+from argparse import SUPPRESS, Action, ArgumentParser
 
 import pytest
 
@@ -230,6 +230,23 @@ def test_zsh_remainder_custom_complete_has_optional_message_colon(caplog):
 
     assert '"(-)*::args:_normal"' in completion
     assert '"(-)*:args:_normal"' not in completion
+    assert not caplog.record_tuples
+
+
+def test_zsh_custom_action_nargs_zero_takes_no_argument(caplog):
+    class CustomFlagAction(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            pass
+
+    parser = ArgumentParser(prog="test", add_help=False)
+    parser.add_argument("--help", "-h", action=CustomFlagAction, help="Helpy", nargs=0,
+                        default=SUPPRESS)
+
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell="zsh")
+
+    assert '{--help,-h}"[Helpy]"' in completion
+    assert '{--help,-h}"[Helpy]:help:"' not in completion
     assert not caplog.record_tuples
 
 
