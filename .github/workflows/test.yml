@@ -7,27 +7,27 @@ on:
 jobs:
   test:
     if: github.event_name != 'pull_request' || !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
-    name: py${{ matrix.python }}
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         python: [3.9, 3.14]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
       with: {fetch-depth: 0}
     - uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
-    - run: pip install -U -e .[dev]
-    - run: pytest
+    - run: pip install -e .[dev]
+    - run: pytest --cov-report=xml --cov-report=term
     - uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+        flags: ${{ matrix.python }}
   deploy:
     needs: test
+    runs-on: ubuntu-latest
     environment: pypi
     permissions: {contents: write, id-token: write}
-    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
       with:
@@ -39,7 +39,6 @@ jobs:
       uses: casperdcl/deploy-pypi@v3
       with:
         build: true
-        requirements: 'build twine packaging>=24.2' # https://github.com/pypa/twine/issues/1216
         upload: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
       name: gh release create --draft

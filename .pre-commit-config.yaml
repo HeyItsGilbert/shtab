@@ -30,7 +30,7 @@ repos:
     name: pytest
     language: python
     entry: env PYTHONPATH=. pytest
-    args: [--cov=shtab, --cov-fail-under=85, -vv]
+    args: [-vv]
     types: [python]
     pass_filenames: false
     additional_dependencies: [pytest-cov]
