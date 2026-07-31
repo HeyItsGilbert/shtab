@@ -2,7 +2,7 @@
 import logging
 import os
 import subprocess
-from argparse import ArgumentParser
+from argparse import SUPPRESS, Action, ArgumentParser
 
 import pytest
 
@@ -220,6 +220,19 @@ def test_custom_complete(shell, caplog):
     assert not caplog.record_tuples
 
 
+def test_zsh_non_sequence_choices(caplog):
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--mapping", choices={"one": 1, "two": 2})
+    parser.add_argument("posA", choices={"three"})
+
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell="zsh")
+
+    assert ':mapping:(one two)"' in completion
+    assert '":posA:(three)"' in completion
+    assert not caplog.record_tuples
+
+
 def test_zsh_remainder_custom_complete_has_optional_message_colon(caplog):
     parser = ArgumentParser(prog="test")
     parser.add_argument("command", nargs=1).complete = {"zsh": "{_command_names -e}"}
@@ -230,6 +243,23 @@ def test_zsh_remainder_custom_complete_has_optional_message_colon(caplog):
 
     assert '"(-)*::args:_normal"' in completion
     assert '"(-)*:args:_normal"' not in completion
+    assert not caplog.record_tuples
+
+
+def test_zsh_custom_action_nargs_zero_takes_no_argument(caplog):
+    class CustomFlagAction(Action):
+        def __call__(self, parser, namespace, values, option_string=None):
+            pass
+
+    parser = ArgumentParser(prog="test", add_help=False)
+    parser.add_argument("--help", "-h", action=CustomFlagAction, help="Helpy", nargs=0,
+                        default=SUPPRESS)
+
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell="zsh")
+
+    assert '{--help,-h}"[Helpy]"' in completion
+    assert '{--help,-h}"[Helpy]:help:"' not in completion
     assert not caplog.record_tuples
 
 
