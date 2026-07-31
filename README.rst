@@ -22,6 +22,7 @@ Features
   - ``bash``
   - ``zsh``
   - ``tcsh``
+  - ``fish``
 
 - Supports
 
@@ -61,8 +62,8 @@ There are two ways of using ``shtab``:
 - `Library Usage <https://tqdm.github.io/shtab/use/#library-usage>`_: as a library integrated into your CLI application
 
   - adds a couple of lines to your application
-  - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh,tcsh}``
-  - subparser mode: end-users execute ``your_cli_app completion {bash,zsh,tcsh}``
+  - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh,tcsh,fish}``
+  - subparser mode: end-users execute ``your_cli_app completion {bash,zsh,tcsh,fish}``
 
 Examples
 --------

@@ -18,6 +18,7 @@
     - `bash`
     - `zsh`
     - `tcsh`
+    - `fish`
 - Supports
     - [`argparse`](https://docs.python.org/library/argparse)
     - [`docopt`](https://pypi.org/project/docopt) (via [`argopt`](https://pypi.org/project/argopt))

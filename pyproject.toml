@@ -20,7 +20,7 @@ maintainers = [{name = "tqdm developers", email = "devs@tqdm.ml"}]
 description = "Automagic shell tab completion for Python CLI applications"
 readme = "README.rst"
 requires-python = ">=3.9"
-keywords = ["tab", "complete", "completion", "shell", "bash", "zsh", "argparse"]
+keywords = ["tab", "completion", "shell", "bash", "zsh", "tcsh", "fish", "argparse"]
 license = {text = "MPL-2.0"}
 classifiers = [
     "Development Status :: 5 - Production/Stable",
