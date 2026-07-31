@@ -459,10 +459,7 @@ def escape_zsh(string):
     """
     Backslash-escape for interpolation into a double-quoted `_arguments` spec.
 
-    NB: `shlex.quote` is unusable here. It returns a self-contained shell *word*
-    (single-quoted, with `'` written as `'"'"'`), which is only valid at the top
-    level. The specs below embed the result inside `"..."`, where those quotes are
-    literal and unbalance the surrounding string.
+    NOTE: cannot use `shlex.quote` (a single-quoted word only valid at top level).
     """
     # excessive but safe
     return re.sub(r"([^\w\s.,()-])", r"\\\1", str(string))
@@ -505,7 +502,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
                             if is_opt_end(opt) else '"*"' if is_opt_multiline(opt) else ""),
                      options=("{{{}}}".format(",".join(opt.option_strings)) if len(
                          opt.option_strings) > 1 else '"{}"'.format("".join(opt.option_strings))),
-                     help=escape_zsh(get_help(opt) if opt.help else ""),
+                     help=escape_zsh(get_help(opt)) if opt.help else "",
                      dest=opt.dest,
                      pattern=complete2pattern(opt.complete, "zsh", choice_type2fn) if hasattr(
                          opt, "complete") else choices2pattern(opt.choices) if opt.choices else "",

@@ -223,6 +223,8 @@ def test_custom_complete(shell, caplog):
 
 def zsh_spec_array(completion, name, tmp_path):
     """`zsh -n` the completion, then return the values zsh assigns to array `name`."""
+    if not shutil.which("zsh"):
+        pytest.skip("zsh not available")
     syntax = subprocess.run(["zsh", "-n"], input=completion, capture_output=True, text=True)
     assert syntax.returncode == 0, f"invalid zsh syntax: {syntax.stderr}\n{completion}"
 
@@ -250,8 +252,6 @@ def test_zsh_help_quoting(help_text, tmp_path, caplog):
     assert "'\"'\"'" not in completion
     assert not caplog.record_tuples
 
-    if not shutil.which("zsh"):
-        pytest.skip("zsh not available")
     specs = zsh_spec_array(completion, "_shtab_test_options", tmp_path)
     assert len(specs) == 1, f"quoting split the spec into {len(specs)} words: {specs}"
     # `_arguments` strips the backslashes; what must not appear is *extra* quotes
