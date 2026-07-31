@@ -455,6 +455,16 @@ complete -o filenames -F ${root_prefix} ${prog}""").safe_substitute(
     )
 
 
+def escape_zsh(string):
+    """
+    Backslash-escape for interpolation into a double-quoted `_arguments` spec.
+
+    NOTE: cannot use `shlex.quote` (a single-quoted word only valid at top level).
+    """
+    # excessive but safe
+    return re.sub(r"([^\w\s.,()-])", r"\\\1", str(string))
+
+
 @mark_completer("zsh")
 def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
     """
@@ -492,7 +502,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
                             if is_opt_end(opt) else '"*"' if is_opt_multiline(opt) else ""),
                      options=("{{{}}}".format(",".join(opt.option_strings)) if len(
                          opt.option_strings) > 1 else '"{}"'.format("".join(opt.option_strings))),
-                     help=quote(get_help(opt) if opt.help else ""),
+                     help=escape_zsh(get_help(opt)) if opt.help else "",
                      dest=opt.dest,
                      pattern=complete2pattern(opt.complete, "zsh", choice_type2fn) if hasattr(
                          opt, "complete") else choices2pattern(opt.choices) if opt.choices else "",
@@ -503,7 +513,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
         return '"{nargs}:{help}:{pattern}"'.format(
             nargs={ONE_OR_MORE: "(*)", ZERO_OR_MORE: "(*):",
                    REMAINDER: "(-)*:"}.get(opt.nargs, ""),
-            help=quote((get_help(opt) if opt.help else opt.dest).strip().split("\n")[0]),
+            help=escape_zsh((get_help(opt) if opt.help else opt.dest).strip().split("\n")[0]),
             pattern=complete2pattern(opt.complete, "zsh", choice_type2fn) if hasattr(
                 opt, "complete") else choices2pattern(opt.choices) if opt.choices else "",
         )
