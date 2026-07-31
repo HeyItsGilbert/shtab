@@ -239,8 +239,8 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                 if hasattr(optional, "complete"):
                     # shtab `.complete = ...` functions
                     comp_pattern_str = complete2pattern(optional.complete, "bash", choice_type2fn)
-                    compgens.append(f"{prefix}_{wordify(option_string)}_COMPGEN="
-                                    f"{join(comp_pattern_str)}")
+                    compgens.append(
+                        f"{prefix}_{wordify(option_string)}_COMPGEN={quote(comp_pattern_str)}")
 
                 if optional.choices:
                     # choices (including shtab `.complete` functions)
