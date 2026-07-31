@@ -867,6 +867,10 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     recurse_parser(subparser, path + [subcmd], same_level_without_current)
             else:                                    # Simple argument (file, name...)
                 output = start_output(path, "")
+
+                # NOTE/caveat: positional argument order is ignored
+                output.extend(get_specials(positional))
+
                 if positional.help:
                     desc = positional.help.strip().split("\n")[0]
                     output.append(f'-d {quote(desc)}')
