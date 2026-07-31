@@ -842,14 +842,6 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output.append(f"-l {optional_str[2:]}")
                 elif optional_str.startswith("-"):
                     output.append(f"-s {optional_str[1:]}")
-
-            # Disable file and directories completion if no type is provided
-            # (by default, Fish always suggests files and directories)
-            if optional.type is None:
-                output.append("-f")
-            else:
-                output.append("-F")
-
             output.extend(get_specials(optional))
             if optional.help:
                 output.append(f'-d {quote(optional.help)}')
@@ -866,7 +858,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                         continue
                     log.debug("%s| | SubParser: %s", log_prefix, subcmd)
                     output = start_output(path, same_level)
-                    output.append(f"-fa {subcmd}")
+                    output.append(f"-a {subcmd}")
                     if subparser.description:
                         desc = subparser.description.strip().split("\n")[0]
                         output.append(f'-d {quote(desc)}')
@@ -875,10 +867,6 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     recurse_parser(subparser, path + [subcmd], same_level_without_current)
             else:                                    # Simple argument (file, name...)
                 output = start_output(path, "")
-
-                # Allow file propositions specifically for this argument
-                output.append("-F")
-
                 if positional.help:
                     desc = positional.help.strip().split("\n")[0]
                     output.append(f'-d {quote(desc)}')

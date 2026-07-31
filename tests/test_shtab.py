@@ -141,19 +141,19 @@ def test_prog_scripts(shell, caplog, capsys):
         start = 'complete -c script.py -n "__fish_use_subcommand"'
         assert script_py == [
             'complete -c script.py -e', 'complete -c script.py -f',
-            f"{start} -s h -l help -f -d 'show this help message and exit'",
-            f"{start} -l version -f -d 'show program'\"'\"'s version number and exit'",
-            f'{start} -s s -l shell -f -rka "bash zsh tcsh fish"',
-            f"{start} -s o -l output -F -d 'output file (- for stdout)'",
-            f"{start} -l prefix -f -d 'prepended to generated functions to avoid clashes'",
-            f"{start} -l preamble -f -d 'prepended to generated script'",
-            f"{start} -l prog -f -d 'custom program name (overrides `parser.prog`)'",
-            f"{start} -s u -l error-unimportable -f -d"
+            f"{start} -s h -l help -d 'show this help message and exit'",
+            f"{start} -l version -d 'show program'\"'\"'s version number and exit'",
+            f'{start} -s s -l shell -rka "bash zsh tcsh fish"',
+            f"{start} -s o -l output -d 'output file (- for stdout)'",
+            f"{start} -l prefix -d 'prepended to generated functions to avoid clashes'",
+            f"{start} -l preamble -d 'prepended to generated script'",
+            f"{start} -l prog -d 'custom program name (overrides `parser.prog`)'",
+            f"{start} -s u -l error-unimportable -d"
             " 'raise errors if `parser` is not found in $PYTHONPATH'",
-            f"{start} -l verbose -f -d 'Log debug information'",
-            f'{start} -l print-own-completion -f -rka "bash zsh tcsh fish" -d'
+            f"{start} -l verbose -d 'Log debug information'",
+            f'{start} -l print-own-completion -rka "bash zsh tcsh fish" -d'
             " 'print shtab'\"'\"'s own completion'",
-            f"{start} -F -d 'importable parser (or function returning parser)'"]
+            f"{start} -d 'importable parser (or function returning parser)'"]
     else:
         raise NotImplementedError(shell)
 
