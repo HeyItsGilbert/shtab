@@ -85,6 +85,7 @@ Not working?
     - if using [`options.entry_points.console_scripts=MY_PROG=...`](https://setuptools.pypa.io/en/latest/userguide/entry_point.html), then ensure the main parser's `prog` matches `argparse.ArgumentParser(prog="MY_PROG")` or override it using `shtab MY_PROG.get_main_parser --prog=MY_PROG`.
     - if executing a script file `./MY_PROG.py` (with a [shebang](<https://en.wikipedia.org/wiki/Shebang_(Unix)>) `#!/usr/bin/env python`) directly, then use `argparse.ArgumentParser(prog="MY_PROG.py")` or override it using `shtab MY_PROG.get_main_parser --prog=MY_PROG.py`.
 - Make sure that all arguments have `help` messages (`parser.add_argument('positional', help="documented; i.e. not hidden")`).
+- Make sure that arguments which should complete file/directory paths are marked as such (`parser.add_argument('positional').complete = shtab.FILE`, see [Usage](use.md)). Path completion is *never* enabled by default - not even for arguments without any other completion information.
 - [Ask a general question on StackOverflow](https://stackoverflow.com/questions/tagged/shtab).
 - [Report bugs and open feature requests on GitHub][issues].
 

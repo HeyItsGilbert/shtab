@@ -139,22 +139,21 @@ def test_prog_scripts(shell, caplog, capsys):
     elif shell == "tcsh":
         assert script_py == ["complete script.py \\"]
     elif shell == "fish":
-        start = 'complete -c script.py -n "__fish_use_subcommand"'
+        start = 'complete -c script.py -n _shtab_shtab_using'
         assert script_py == [
             'complete -c script.py -e', 'complete -c script.py -f',
             f"{start} -s h -l help -d 'show this help message and exit'",
             f"{start} -l version -d 'show program'\"'\"'s version number and exit'",
-            f'{start} -s s -l shell -rka "bash zsh tcsh fish"',
-            f"{start} -s o -l output -d 'output file (- for stdout)'",
-            f"{start} -l prefix -d 'prepended to generated functions to avoid clashes'",
-            f"{start} -l preamble -d 'prepended to generated script'",
-            f"{start} -l prog -d 'custom program name (overrides `parser.prog`)'",
+            f'{start} -s s -l shell -xka "bash zsh tcsh fish"',
+            f"{start} -s o -l output -x -d 'output file (- for stdout)'",
+            f"{start} -l prefix -x -d 'prepended to generated functions to avoid clashes'",
+            f"{start} -l preamble -x -d 'prepended to generated script'",
+            f"{start} -l prog -x -d 'custom program name (overrides `parser.prog`)'",
             f"{start} -s u -l error-unimportable -d"
             " 'raise errors if `parser` is not found in $PYTHONPATH'",
             f"{start} -l verbose -d 'Log debug information'",
-            f'{start} -l print-own-completion -rka "bash zsh tcsh fish" -d'
-            " 'print shtab'\"'\"'s own completion'",
-            f"{start} -d 'importable parser (or function returning parser)'"]
+            f'{start} -l print-own-completion -xka "bash zsh tcsh fish" -d'
+            " 'print shtab'\"'\"'s own completion'"]
     else:
         raise NotImplementedError(shell)
 
@@ -299,6 +298,107 @@ def test_zsh_custom_action_nargs_zero_takes_no_argument(caplog):
 
     assert '{--help,-h}"[Helpy]"' in completion
     assert '{--help,-h}"[Helpy]:help:"' not in completion
+    assert not caplog.record_tuples
+
+
+requires_fish = pytest.mark.skipif(not shutil.which("fish"), reason="fish not available")
+
+
+def fish_candidates(completion, cmdline):
+    """Source `completion` in fish, then return the completion candidates for `cmdline`."""
+    quoted = "'" + cmdline.replace("\\", "\\\\").replace("'", "\\'") + "'"
+    proc = subprocess.run(["fish", "-c", f"{completion}\ncomplete -C{quoted}"],
+                          capture_output=True, text=True, timeout=60)
+    assert proc.returncode == 0, f"fish failed: {proc.stderr}\n{completion}"
+    # each output line is "candidate<TAB>description" (or just "candidate")
+    return [line.split("\t")[0] for line in proc.stdout.splitlines() if line.strip()]
+
+
+def get_fish_test_parser():
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--repo", "-r", help="repository to use")
+    subparsers = parser.add_subparsers(dest="cmd")
+    create = subparsers.add_parser("create", help="create something")
+    create.add_argument("--exclude-from", help="exclude patterns file").complete = shtab.FILE
+    create.add_argument("name", choices=["alpha", "beta"], help="name of the thing to create")
+    create.add_argument("paths", nargs="*", help="paths to add").complete = shtab.FILE
+    delete = subparsers.add_parser("delete", help="delete something")
+    delete.add_argument("--force", action="store_true", help="force deletion")
+    delete.add_argument("name", help="name of the thing to delete")
+    subparsers.add_parser("list", help="list things")
+    return parser
+
+
+@requires_fish
+def test_fish_file_completion(caplog, change_dir):
+    """`shtab.FILE` completes files: https://github.com/tqdm/shtab/issues/227"""
+    (change_dir / "test_file.txt").touch()
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(get_fish_test_parser(), shell="fish")
+
+    # positional marked `shtab.FILE` (`paths`, after the `name` slot)
+    assert "test_file.txt" in fish_candidates(completion, "test create alpha test_")
+    # value of an option marked `shtab.FILE` completes files, not the positional's choices
+    candidates = fish_candidates(completion, "test create --exclude-from ")
+    assert "test_file.txt" in candidates
+    assert "alpha" not in candidates
+    # arguments not marked `shtab.FILE` don't complete files (as in the other shells)
+    assert fish_candidates(completion, "test delete test_") == []
+    assert fish_candidates(completion, "test --repo test_") == []
+
+    assert not caplog.record_tuples
+
+
+@requires_fish
+def test_fish_global_option_value(caplog):
+    """Subcommands complete after `--global-opt value`: https://github.com/tqdm/shtab/issues/228"""
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(get_fish_test_parser(), shell="fish")
+
+    candidates = fish_candidates(completion, "test --repo x ")
+    assert {"create", "delete", "list"} <= set(candidates)
+
+    assert not caplog.record_tuples
+
+
+@requires_fish
+def test_fish_value_equal_to_command_name(caplog):
+    """Values matching command names must not confuse: https://github.com/tqdm/shtab/issues/229"""
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(get_fish_test_parser(), shell="fish")
+
+    # `list` is the value of `delete`'s `name` positional, not the `list` subcommand
+    candidates = fish_candidates(completion, "test delete list --")
+    assert "--force" in candidates
+    assert "--short" not in candidates
+
+    assert not caplog.record_tuples
+
+
+@requires_fish
+def test_fish_positional_order(caplog):
+    """Positionals are completed at the right slot: https://github.com/tqdm/shtab/issues/230"""
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(get_fish_test_parser(), shell="fish")
+
+    # first slot offers the `name` choices
+    assert {"alpha", "beta"} <= set(fish_candidates(completion, "test create "))
+    # later slots (the `paths` positional) must not re-offer them
+    assert "alpha" not in fish_candidates(completion, "test create alpha alp")
+
+    assert not caplog.record_tuples
+
+
+@requires_fish
+def test_fish_custom_complete(caplog):
+    with caplog.at_level(logging.INFO):
+        parser = ArgumentParser(prog="test")
+        parser.add_argument("posA").complete = {"fish": "(_shtab_test_some_func)"}
+        preamble = {"fish": "function _shtab_test_some_func\n    printf '%s\\n' one two\nend"}
+        completion = shtab.complete(parser, shell="fish", preamble=preamble)
+
+    assert fish_candidates(completion, "test o") == ["one"]
+
     assert not caplog.record_tuples
 
 

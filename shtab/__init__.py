@@ -25,10 +25,11 @@ log = logging.getLogger(__name__)
 SUPPORTED_SHELLS: list[str] = []
 _SUPPORTED_COMPLETERS: dict[str, Callable] = {}
 CHOICE_FUNCTIONS: dict[str, dict[str, str]] = {
-    "file": {"bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f", "fish": ""},
-    "directory": {
-        "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
-        "fish": "(__fish_complete_directories)"}}
+    "file": {
+        "bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f",
+        "fish": "(__fish_complete_path)"}, "directory": {
+            "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
+            "fish": "(__fish_complete_directories)"}}
 FILE = CHOICE_FUNCTIONS["file"]
 DIRECTORY = DIR = CHOICE_FUNCTIONS["directory"]
 FLAG_OPTION = (
@@ -823,45 +824,49 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     """
     Return fish syntax autocompletion script.
 
-    root_prefix:
-      ignored (fish has no support for functions)
-
-    See `complete` for other arguments.
+    See `complete` for arguments.
     """
     prog = parser.prog
-    completions = []
+    prefix = wordify(f"_shtab_{root_prefix or prog}")
+    completions: list = []
+    # all (sub)command paths, e.g. ["sub", "sub subsub"]
+    commands: list = []
+    # option strings which consume a following value token
+    opts_with_value: set = set()
 
     choice_type2fn = {k: v["fish"] for k, v in CHOICE_FUNCTIONS.items()}
     if choice_functions:
         choice_type2fn.update(choice_functions)
 
-    def start_output(path, same_level):
-        output = ["complete", "-c", prog]
-        if len(path) > 0:
-            cond = '; and '.join(f"__fish_seen_subcommand_from {cmd}" for cmd in path)
-            if same_level != "":
-                cond += f"; and not __fish_seen_subcommand_from {same_level}"
-            output.append(f'-n "{cond}"')
-        else:
-            output.append('-n "__fish_use_subcommand"')
-        return output
+    def is_flag(opt):
+        return isinstance(opt, FLAG_OPTION) or opt.nargs == 0
 
-    def get_specials(arg):
-        if arg.choices:
-            yield f'-rka "{join(map(str, arg.choices))}"'
-        elif hasattr(arg, 'complete'):
-            complete_fn = complete2pattern(arg.complete, 'fish', choice_type2fn)
-            if complete_fn:
-                yield f'-rka "{complete_fn}"'
+    def get_pattern(arg):
+        """`Choice`/`.complete` completion pattern, or None if there is none."""
+        if arg.choices and isinstance(next(iter(arg.choices)), Choice):
+            return choice_type2fn[next(iter(arg.choices)).type]
+        if hasattr(arg, "complete"):
+            return complete2pattern(arg.complete, "fish", choice_type2fn)
+        return None
 
-    def recurse_parser(cparser: ArgumentParser, path: list[str], same_level: str):
+    def pos_condition(index, width, open_ended):
+        """Condition suffix restricting a completion to the given positional slot(s)."""
+        npos = f"${prefix}_npos"
+        if open_ended or width is None:
+            return f"; and test {npos} -ge {index}"
+        if width == 1:
+            return f"; and test {npos} -eq {index}"
+        return f"; and test {npos} -ge {index}; and test {npos} -le {index + width - 1}"
+
+    def start_output(path, pos_test=""):
+        """`complete` command start, with a condition matching the (sub)command `path`."""
+        cond = " ".join([f"{prefix}_using"] + [quote(cmd) for cmd in path]) + pos_test
+        return ["complete", "-c", prog, f"-n {quote(cond)}"]
+
+    def recurse_parser(cparser: ArgumentParser, path: list[str]):
         """
         path:
           the list of subcommands that led to current
-
-        same_level:
-          a space separated list of other subcommands available on the same level
-          must not contain the current subcommand
         """
         log_prefix = "| " * len(path)
         log.debug("%sParser @ %d", log_prefix, len(path))
@@ -869,53 +874,129 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
             log.debug("%s| Optional: %s", log_prefix, optional.dest)
             if optional.help == SUPPRESS:
                 continue
-            output = start_output(path, same_level)
+            output = start_output(path)
             for optional_str in optional.option_strings:
                 log.debug("%s| | %s", log_prefix, optional_str)
                 if optional_str.startswith("--"):
                     output.append(f"-l {optional_str[2:]}")
                 elif optional_str.startswith("-"):
                     output.append(f"-s {optional_str[1:]}")
-            output.extend(get_specials(optional))
+            if not is_flag(optional):
+                opts_with_value.update(optional.option_strings)
+                pattern = get_pattern(optional)
+                # `-x` (`-r -f`): a value is required, and it isn't a file
+                # (unless `shtab.FILE`/`DIRECTORY` says so)
+                if pattern is None and optional.choices:
+                    output.append(f'-xka "{join(map(str, optional.choices))}"')
+                elif pattern:
+                    output.append(f'-xka "{pattern}"')
+                else:
+                    output.append("-x")
             if optional.help:
                 output.append(f'-d {quote(optional.help)}')
             completions.append(' '.join(output))
+
+        # index: the next positional slot (number of preceding positional arguments);
+        # open_ended: an earlier positional consumes any number of tokens
+        index = 0
+        open_ended = False
         for positional in cparser._get_positional_actions():
             if positional.help == SUPPRESS:
                 continue
-            log.debug("%s| Positional #%d: %s", log_prefix, len(path) + 1, positional.dest)
-            if isinstance(positional.choices, dict): # Positional subcommand
+            log.debug("%s| Positional #%d: %s", log_prefix, index, positional.dest)
+            if isinstance(positional.choices, dict):
+                # positional subcommand
                 public = get_public_subcommands(positional)
-                same_level = ' '.join(public)
+                pos_test = pos_condition(index, 1, open_ended)
                 for subcmd, subparser in positional.choices.items():
                     if subcmd not in public:
                         continue
                     log.debug("%s| | SubParser: %s", log_prefix, subcmd)
-                    output = start_output(path, same_level)
-                    output.append(f"-a {subcmd}")
+                    commands.append(" ".join(path + [subcmd]))
+                    output = start_output(path, pos_test)
+                    output.append(f"-a {quote(subcmd)}")
                     if subparser.description:
                         desc = subparser.description.strip().split("\n")[0]
                         output.append(f'-d {quote(desc)}')
                     completions.append(' '.join(output))
-                    same_level_without_current = ' '.join(filter(lambda c: c != subcmd, public))
-                    recurse_parser(subparser, path + [subcmd], same_level_without_current)
-            else:                                    # Simple argument (file, name...)
-                output = start_output(path, "")
+                    recurse_parser(subparser, path + [subcmd])
+                index += 1
+            else:
+                # simple argument (file, name...)
+                width = (positional.nargs if isinstance(positional.nargs, int) else
+                         1 if positional.nargs in (None, "?") else None)
+                pattern = get_pattern(positional)
+                output = start_output(path, pos_condition(index, width, open_ended))
+                if pattern is None and positional.choices:
+                    output.append(f'-ka "{join(map(str, positional.choices))}"')
+                elif pattern:
+                    output.append(f'-ka "{pattern}"')
+                else:
+                    # nothing to complete (`shtab.FILE` is needed for files)
+                    output = None
+                if output is not None:
+                    if positional.help:
+                        desc = positional.help.strip().split("\n")[0]
+                        output.append(f'-d {quote(desc)}')
+                    completions.append(' '.join(output))
+                if width is None:
+                    open_ended = True
+                else:
+                    index += width
 
-                # NOTE/caveat: positional argument order is ignored
-                output.extend(get_specials(positional))
-
-                if positional.help:
-                    desc = positional.help.strip().split("\n")[0]
-                    output.append(f'-d {quote(desc)}')
-                completions.append(' '.join(output))
-
-    recurse_parser(parser, [], "")
+    recurse_parser(parser, [])
 
     return Template("""\
 # AUTOMATICALLY GENERATED by https://github.com/tqdm/shtab
 
 ${preamble}
+# Parse the current command line: set $$${prefix}_cmdpath to the (sub)command
+# path seen so far (e.g. "sub subsub") and $$${prefix}_npos to the number of
+# positional arguments given after it. Options and their values are skipped,
+# based on the $$${prefix}_opts_with_value and $$${prefix}_commands lists.
+function ${prefix}_scan
+    set -g ${prefix}_cmdpath ''
+    set -g ${prefix}_npos 0
+    set -l tokens (commandline -opc)
+    set -e tokens[1]
+    set -l expect_value 0
+    for t in $$tokens
+        if test $$expect_value -eq 1
+            set expect_value 0
+            continue
+        end
+        switch "$$t"
+            case '--*=*'
+                continue
+            case '-*'
+                if contains -- $$t $$${prefix}_opts_with_value
+                    set expect_value 1
+                end
+                continue
+            case '*'
+                if test $$${prefix}_npos -eq 0
+                    set -l candidate $$t
+                    if test -n "$$${prefix}_cmdpath"
+                        set candidate "$$${prefix}_cmdpath $$t"
+                    end
+                    if contains -- $$candidate $$${prefix}_commands
+                        set -g ${prefix}_cmdpath $$candidate
+                        continue
+                    end
+                end
+                set -g ${prefix}_npos (math $$${prefix}_npos + 1)
+        end
+    end
+end
+
+# Condition helper: true if the current (sub)command path equals the given one.
+function ${prefix}_using
+    ${prefix}_scan
+    test "$$${prefix}_cmdpath" = "$$argv"
+end
+
+set -g ${prefix}_commands ${commands}
+set -g ${prefix}_opts_with_value ${opts_with_value}
 
 complete -c ${prog} -e
 complete -c ${prog} -f
@@ -924,6 +1005,9 @@ ${completions}
 """).safe_substitute(
         preamble=f"# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
         prog=parser.prog,
+        prefix=prefix,
+        commands=' '.join(quote(cmd) for cmd in commands),
+        opts_with_value=' '.join(quote(opt) for opt in sorted(opts_with_value)),
         completions='\n'.join(completions),
     )
 
@@ -932,7 +1016,7 @@ def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] 
              preamble: Union[str, dict[str, str]] = "", choice_functions: Opt[Any] = None) -> str:
     """
     shell:
-      bash/zsh/tcsh
+      bash/zsh/tcsh/fish
     root_prefix:
       prefix for shell functions to avoid clashes (default: "_{parser.prog}")
     preamble:
