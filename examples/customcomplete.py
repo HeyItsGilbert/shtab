@@ -8,18 +8,6 @@ import argparse
 
 import shtab  # for completion magic
 
-# WARNING: (re)run by your shell on each tab press, so could be slow
-_complete_token_cmd = "head -c5 /dev/random | base32"
-COMPLETE_TOKEN = {
-    "bash": "_shtab_greeter_compgen_PYModules", "zsh": f"($({_complete_token_cmd}))",
-    "tcsh": f"`{_complete_token_cmd}`", "fish": f"({_complete_token_cmd})", "preamble": {
-        "bash": f"""
-# $1=COMP_WORDS[1]
-_shtab_greeter_compgen_PYModules() {{
-  compgen -W "$({_complete_token_cmd})" -- $1
-}}
-"""}}
-
 
 def process(args):
     print(f"received <token>={args.token} [<suffix>={args.suffix}]"
@@ -39,7 +27,8 @@ def get_main_parser():
 
     parser = subparsers.add_parser("process", help="parse files")
     # dynamic command tab completion builtin shortcut
-    parser.add_argument("token").complete = COMPLETE_TOKEN
+    # WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
+    parser.add_argument("token").complete = shtab.cmd("head -c5 /dev/random | base32")
     # file tab completion builtin shortcut
     parser.add_argument("-i", "--input-file").complete = shtab.FILE
     # directory tab completion builtin shortcut

@@ -17,7 +17,8 @@ try:
     __version__ = version('shtab')
 except PackageNotFoundError:
     __version__ = "UNKNOWN"
-__all__ = ["complete", "add_argument_to", "glob", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR"]
+__all__ = [
+    "complete", "add_argument_to", "glob", "cmd", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR"]
 log = logging.getLogger(__name__)
 
 ShellType = str
@@ -70,6 +71,24 @@ function _shtab_pattern_compgen_{abs(hash(patterns))}
   end
   __fish_complete_path "$comp" | string match -e "*/"  # recurse into subdirs
 end
+"""}}
+
+
+def cmd(command: str) -> CompleteType:
+    """
+    command:
+      shell command to run to generate completions
+
+    Example: `cmd("git branch")`
+    """
+    return {
+        "bash": f"_shtab_pattern_compgen_{abs(hash(command))}", "zsh": f"($({command}))",
+        "tcsh": f"`{command}`", "fish": f"({command})", "preamble": {
+            "bash": f"""
+# $1=COMP_WORDS[1]
+_shtab_pattern_compgen_{abs(hash(command))}() {{
+  compgen -W "$({command})" -- $1
+}}
 """}}
 
 
