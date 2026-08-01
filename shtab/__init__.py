@@ -13,12 +13,10 @@ from typing import Any, Callable
 from typing import Optional as Opt
 from typing import Union
 
-# version detector. Precedence: installed dist, git, 'UNKNOWN'
 try:
     __version__ = version('shtab')
 except PackageNotFoundError:
     __version__ = "UNKNOWN"
-
 __all__ = ["complete", "add_argument_to", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR"]
 log = logging.getLogger(__name__)
 
@@ -55,7 +53,7 @@ def fext(*extensions: str, pre: str = '.') -> CompleteType:
         "zsh": f"_files -g '*{pre}({'|'.join(extensions)})'",
         "tcsh": f"f:*{pre}{{{','.join(extensions)}}}",
         "fish": f"(__fish_complete_suffix {pre}{f' {pre}'.join(extensions)})", "preamble": {
-            "bash": f"""\
+            "bash": f"""
 # $1=COMP_WORDS[1]
 _shtab_pattern_compgen_{abs(hash(extensions))}() {{
   compgen -d -- $1  # recurse into subdirs
@@ -95,6 +93,7 @@ def get_completer(shell: str):
 @total_ordering
 class Choice:
     """
+    WARNING: deprecated. Use `.complete = ...` instead.
     Placeholder to mark a special completion `<type>`.
 
     >>> ArgumentParser.add_argument(..., choices=[Choice("<type>")])
@@ -125,15 +124,19 @@ class Choice:
 
 
 class Optional:
-    """Example: `ArgumentParser.add_argument(..., choices=Optional.FILE)`."""
-
+    """
+    WARNING: deprecated. Use `.complete = ...` instead.
+    Example: `ArgumentParser.add_argument(..., choices=Optional.FILE)`.
+    """
     FILE = [Choice("file")]
     DIR = DIRECTORY = [Choice("directory")]
 
 
 class Required:
-    """Example: `ArgumentParser.add_argument(..., choices=Required.FILE)`."""
-
+    """
+    WARNING: deprecated. Use `.complete = ...` instead.
+    Example: `ArgumentParser.add_argument(..., choices=Required.FILE)`.
+    """
     FILE = [Choice("file", True)]
     DIR = DIRECTORY = [Choice("directory", True)]
 
@@ -176,24 +179,15 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
     choice_type2fn = {k: v["bash"] for k, v in CHOICE_FUNCTIONS.items()}
     if choice_functions:
         choice_type2fn.update(choice_functions)
+    subparsers = []
+    option_strings = []
+    compgens = []
+    choices = []
+    nargs = []
+    preambles = []
 
     def recurse(parser, prefix):
         """Recurse through subparsers, appending to the return lists"""
-        subparsers = []
-        option_strings = []
-        compgens = []
-        choices = []
-        nargs = []
-        preambles = []
-
-        # temp lists for recursion results
-        sub_subparsers = []
-        sub_option_strings = []
-        sub_compgens = []
-        sub_choices = []
-        sub_nargs = []
-        sub_preambles = []
-
         # positional arguments
         discovered_subparsers = []
         for i, positional in enumerate(parser._get_positional_actions()):
@@ -203,7 +197,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
             if hasattr(positional, "complete"):
                 # shtab `.complete = ...` functions
                 comp_pattern = complete2pattern(positional.complete, "bash", choice_type2fn,
-                                                sub_preambles)
+                                                preambles)
                 compgens.append(f"{prefix}_pos_{i}_COMPGEN={quote(comp_pattern)}")
 
             if positional.choices:
@@ -225,17 +219,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                         if choice in public_cmds:
                             discovered_subparsers.append(str(choice))
                             this_positional_choices.append(str(choice))
-                            (new_subparsers, new_option_strings, new_compgens, new_choices,
-                             new_nargs, new_preambles) = recurse(
-                                 positional.choices[choice],
-                                 f"{prefix}_{wordify(choice)}",
-                             )
-                            sub_subparsers.extend(new_subparsers)
-                            sub_option_strings.extend(new_option_strings)
-                            sub_compgens.extend(new_compgens)
-                            sub_choices.extend(new_choices)
-                            sub_nargs.extend(new_nargs)
-                            sub_preambles.extend(new_preambles)
+                            recurse(positional.choices[choice], f"{prefix}_{wordify(choice)}")
                         else:
                             log.debug("skip:subcommand:%s", choice)
                     else:
@@ -266,7 +250,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                 if hasattr(optional, "complete"):
                     # shtab `.complete = ...` functions
                     comp_pattern_str = complete2pattern(optional.complete, "bash", choice_type2fn,
-                                                        sub_preambles)
+                                                        preambles)
                     compgens.append(
                         f"{prefix}_{wordify(option_string)}_COMPGEN={quote(comp_pattern_str)}")
 
@@ -293,14 +277,6 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                 if optional.nargs is not None and optional.nargs != 1:
                     nargs.append(f"{prefix}_{wordify(option_string)}_nargs="
                                  f"{quote(str(optional.nargs))}")
-
-        # append recursion results
-        subparsers.extend(sub_subparsers)
-        option_strings.extend(sub_option_strings)
-        compgens.extend(sub_compgens)
-        choices.extend(sub_choices)
-        nargs.extend(sub_nargs)
-        preambles.extend(sub_preambles)
 
         return subparsers, option_strings, compgens, choices, nargs, preambles
 
