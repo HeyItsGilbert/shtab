@@ -2,7 +2,7 @@
 """
 `argparse`-based CLI app with file/dir tab completion.
 
-Uses `add_argument().complete = shtab.(FILE|DIR)`.
+Uses `add_argument().complete = shtab.(FILE|DIR|fext(...))`.
 See `customcomplete.py` for a more advanced version.
 """
 import argparse
@@ -17,6 +17,7 @@ def get_main_parser():
     # file & directory tab complete
     parser.add_argument("file", nargs="?").complete = shtab.FILE
     parser.add_argument("--dir", default=".").complete = shtab.DIRECTORY
+    parser.add_argument("--config").complete = shtab.fext('toml', 'yml', 'yaml', 'json')
     return parser
 
 

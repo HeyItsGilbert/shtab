@@ -8,24 +8,23 @@ import argparse
 
 import shtab  # for completion magic
 
-TXT_FILE = {
-    "bash": "_shtab_greeter_compgen_TXTFiles", "zsh": "_files -g '(*.txt|*.TXT)'",
-    "tcsh": "f:*.txt", "fish": "(__fish_complete_suffix .txt)"}
-PREAMBLE = {
-    "bash": """
+# WARNING: (re)run by your shell on each tab press, so could be slow
+_complete_token_cmd = "head -c5 /dev/random | base32"
+COMPLETE_TOKEN = {
+    "bash": "_shtab_greeter_compgen_PYModules", "zsh": f"($({_complete_token_cmd}))",
+    "tcsh": f"`{_complete_token_cmd}`", "fish": f"({_complete_token_cmd})", "preamble": {
+        "bash": f"""
 # $1=COMP_WORDS[1]
-_shtab_greeter_compgen_TXTFiles() {
-  compgen -d -- $1  # recurse into subdirs
-  compgen -f -X '!*?.txt' -- $1
-  compgen -f -X '!*?.TXT' -- $1
-}
-"""}
+_shtab_greeter_compgen_PYModules() {{
+  compgen -W "$({_complete_token_cmd})" -- $1
+}}
+"""}}
 
 
 def process(args):
-    print(
-        "received <input_txt>=%r [<suffix>=%r] --input-file=%r --output-name=%r --hidden-opt=%r" %
-        (args.input_txt, args.suffix, args.input_file, args.output_name, args.hidden_opt))
+    print(f"received <token>={args.token} [<suffix>={args.suffix}]"
+          f" --input-file={args.input_file} --output-name={args.output_name}"
+          f" --text-file={args.text_file} --hidden-opt={args.hidden_opt}")
 
 
 def get_main_parser():
@@ -36,23 +35,25 @@ def get_main_parser():
     subparsers.dest = "subcommand"
 
     parser = subparsers.add_parser("completion", help="print tab completion")
-    shtab.add_argument_to(parser, "shell", parent=main_parser, preamble=PREAMBLE) # magic!
+    shtab.add_argument_to(parser, "shell", parent=main_parser) # magic!
 
     parser = subparsers.add_parser("process", help="parse files")
-    # `*.txt` file tab completion
-    parser.add_argument("input_txt", nargs='?').complete = TXT_FILE
+    # dynamic command tab completion builtin shortcut
+    parser.add_argument("token").complete = COMPLETE_TOKEN
     # file tab completion builtin shortcut
     parser.add_argument("-i", "--input-file").complete = shtab.FILE
+    # directory tab completion builtin shortcut
     parser.add_argument(
         "-o",
         "--output-name",
         help=("output file name. Completes directory names to avoid users"
               " accidentally overwriting existing files."),
     ).complete = shtab.DIRECTORY
-    # directory tab completion builtin shortcut
-
+    # pattern tab completion builtin shortcut
+    parser.add_argument("--text-file").complete = shtab.fext("txt")
     parser.add_argument("suffix", choices=['json', 'csv'], default='json', nargs='?',
                         help="Output format")
+    # help=None or argparse.SUPPRESS to exclude from CLI --help & completions
     parser.add_argument("--hidden-opt", action='store_true', help=argparse.SUPPRESS)
     parser.set_defaults(func=process)
     return main_parser
