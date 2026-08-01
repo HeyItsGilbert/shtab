@@ -129,6 +129,13 @@ def get_public_subcommands(sub):
     return {k for k, v in sub.choices.items() if id(v) in public_parsers}
 
 
+def get_subcommand_helps(sub):
+    """Map `id(subparser)` to the `help` passed to `add_parser` (also covers aliases)."""
+    return {
+        id(sub.choices[i.dest]): i.help
+        for i in sub._get_subactions() if i.dest in sub.choices}
+
+
 def get_bash_commands(root_parser, root_prefix, choice_functions=None):
     """
     Recursive subcommand parser traversal, returning lists of information on
@@ -862,6 +869,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
         """
         log_prefix = "| " * len(path)
         log.debug("%sParser @ %d", log_prefix, len(path))
+        # expands %(default)s etc. in help strings, like argparse's own help output
+        get_help = cparser._get_formatter()._expand_help
         for optional in cparser._get_optional_actions():
             log.debug("%s| Optional: %s", log_prefix, optional.dest)
             if optional.help == SUPPRESS:
@@ -883,7 +892,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 else:
                     output.append("-x")
             if optional.help:
-                output.append(f'-d {quote(optional.help)}')
+                output.append(f'-d {quote(get_help(optional))}')
             completions.append(' '.join(output))
 
         index = 0          # the next positional slot (number of preceding positional arguments)
@@ -897,6 +906,9 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 # positional subcommand
                 public = get_public_subcommands(positional)
                 pos_test = pos_condition(index, 1, open_ended)
+                # fall back to the `help` given to `add_parser` when a subparser
+                # has no `description` (keyed by id() to also cover aliases)
+                subcmd_help = get_subcommand_helps(positional)
                 for subcmd, subparser in positional.choices.items():
                     if subcmd not in public:
                         continue
@@ -904,8 +916,9 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     commands.append(" ".join(path + [subcmd]))
                     output = start_output(path, pos_test)
                     output.append(f"-a {quote(subcmd)}")
-                    if subparser.description:
-                        desc = subparser.description.strip().split("\n")[0]
+                    desc = subparser.description or subcmd_help.get(id(subparser)) or ""
+                    desc = desc.strip().split("\n")[0]
+                    if desc:
                         output.append(f'-d {quote(desc)}')
                     completions.append(' '.join(output))
                     recurse_parser(subparser, path + [subcmd])
@@ -924,7 +937,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output = None
                 if output is not None:
                     if positional.help:
-                        desc = positional.help.strip().split("\n")[0]
+                        desc = get_help(positional).strip().split("\n")[0]
                         output.append(f'-d {quote(desc)}')
                     completions.append(' '.join(output))
                 if width is None:

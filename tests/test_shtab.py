@@ -330,6 +330,37 @@ def test_fish_positional_order(test_parser):
     assert "alpha" not in fish_candidates(completion, "test create alpha alp")
 
 
+def test_fish_help_expansion(caplog):
+    """%(default)s etc. are expanded in descriptions: https://github.com/tqdm/shtab/issues/231"""
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--retries", type=int, default=3, help="retries (default: %(default)s)")
+    parser.add_argument("posA", choices=["one", "two"], help="%(prog)s thing")
+
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell="fish")
+
+    assert "-d 'retries (default: 3)'" in completion
+    assert "-d 'test thing'" in completion
+
+    assert not caplog.record_tuples
+
+
+def test_fish_subcommand_description(caplog):
+    """add_parser(help=...) is used when there is no description: tqdm/shtab#231"""
+    parser = ArgumentParser(prog="test")
+    subparsers = parser.add_subparsers()
+    subparsers.add_parser("subA", help="help message")
+    subparsers.add_parser("subB", description="description wins\nsecond line", help="unused")
+
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell="fish")
+
+    assert "-a subA -d 'help message'" in completion
+    assert "-a subB -d 'description wins'" in completion
+
+    assert not caplog.record_tuples
+
+
 @fix_shell
 def test_subparser_custom_complete(shell):
     parser = ArgumentParser(prog="test")
