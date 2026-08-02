@@ -62,6 +62,7 @@ jobs:
           done
           echo "::endgroup::"
         done
+        cat "$GITHUB_STEP_SUMMARY"
         test -z "$(cat "$GITHUB_STEP_SUMMARY")"
   deploy:
     needs: test
