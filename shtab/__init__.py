@@ -784,10 +784,9 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
                             nlist.append(f"if ( {condition} ) {complete_fn}")
             if nlist:
                 nlist_str = '; '.join(nlist)
-                # pad $cmd so indexing it never runs out of range. $COMMAND_LINE must stay
-                # unquoted: quoting it stops csh word splitting, so $cmd[1] would be the whole
-                # command line and $cmd[2] always empty (no subcommand would ever complete).
-                padding = '"" "" "" "" "" "" "" "" ""'
+                # pad $cmd so indexing it never runs out of range.
+                # $COMMAND_LINE must stay unquoted to allow csh word splitting.
+                padding = ' '.join(['""'] * 9)
                 specials.append(
                     f"'p@{str(idx)}@`set cmd=($COMMAND_LINE {padding}); {nlist_str}`@'")
 
@@ -798,7 +797,6 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
             # Don't add a space after completing "--" from "-"
             optionals_single = ('-', '-')
 
-    # removes duplicates from list, preserves order
     specials = list(dict.fromkeys(specials))
     eq_specials = list(dict.fromkeys(eq_specials))
 
