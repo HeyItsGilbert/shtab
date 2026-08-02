@@ -24,6 +24,45 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         flags: ${{ matrix.python }}
+  diff:
+    if: (github.event_name != 'pull_request' || !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+      with: {fetch-depth: 0}
+    - uses: actions/setup-python@v7
+      with: {python-version: '3.x'}
+    - name: diff examples
+      run: |
+        pip install -e .
+        git checkout main
+        SHELLS=$(python -c "import shtab; print(' '.join(shtab.SUPPORTED_SHELLS))")
+        git checkout -
+        ref=$(git rev-parse --abbrev-ref HEAD)
+        mkdir -p "$ref" main
+        for s in $SHELLS; do
+          echo "::group::$s"
+          for r in main "$ref"; do
+            git checkout -
+            python examples/pathcomplete.py -s $s > "$r/pathcomplete.$s" || :
+            python examples/customcomplete.py completion $s > "$r/customcomplete.$s" || :
+          done
+          for ex in pathcomplete customcomplete; do
+            d=$(diff {main,"$ref"}/$ex.$s || :)
+            if test -n "$d"; then
+              echo "::warning file=examples/$ex.py,line=1,title=$s::changes detected"
+              cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+        # warning: $ex.$s
+
+        \`\`\`diff
+        $d
+        \`\`\`
+        EOF
+            fi
+          done
+          echo "::endgroup::"
+        done
+        test -z "$(cat "$GITHUB_STEP_SUMMARY")"
   deploy:
     needs: test
     runs-on: ubuntu-latest
