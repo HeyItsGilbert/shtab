@@ -86,7 +86,7 @@ Not working?
     - if executing a script file `./MY_PROG.py` (with a [shebang](<https://en.wikipedia.org/wiki/Shebang_(Unix)>) `#!/usr/bin/env python`) directly, then use `argparse.ArgumentParser(prog="MY_PROG.py")` or override it using `shtab MY_PROG.get_main_parser --prog=MY_PROG.py`.
 - Make sure that all arguments have `help` messages (`parser.add_argument('positional', help="documented; i.e. not hidden")`).
 - [Ask a general question on StackOverflow](https://stackoverflow.com/questions/tagged/shtab).
-- [Report bugs and open feature requests on GitHub][GH-issue].
+- [Report bugs and open feature requests on GitHub][issues].
 
 "Eager" installation (completions are re-generated upon login/terminal start) is
 recommended. Naturally, `shtab` and the CLI application to complete should be
@@ -110,9 +110,11 @@ application. Use `-u, --error-unimportable` to noisily complain.
 
 ## Contributions
 
-Please do open [issues](https://github.com/tqdm/shtab/issues) & [pull requests](https://github.com/tqdm/shtab/pulls)!
+Please do open [issues] & [pull requests](https://github.com/tqdm/shtab/pulls)!
 
 See [CONTRIBUTING.md](https://github.com/tqdm/shtab/tree/main/CONTRIBUTING.md) for more guidance.
+
+[issues]: https://github.com/tqdm/shtab/issues
 
 [![git-fame](https://git-fame.cdcl.ml/gh/tqdm/shtab?min=1&w=1&M=1&C=1&enum=1)](https://git-fame.cdcl.ml/gh/tqdm/shtab?w=1&M=1&C=1&enum=1)
 
