@@ -17,7 +17,7 @@ try:
     __version__ = version('shtab')
 except PackageNotFoundError:
     __version__ = "UNKNOWN"
-__all__ = ["complete", "add_argument_to", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR"]
+__all__ = ["complete", "add_argument_to", "glob", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR"]
 log = logging.getLogger(__name__)
 
 ShellType = str
@@ -41,26 +41,35 @@ FLAG_OPTION = (
 )
 
 
-def fext(*extensions: str, pre: str = '.') -> CompleteType:
+def glob(*patterns: str) -> CompleteType:
     """
-    pre:
-      prefix for each extension
+    Example: `glob("*.yml", "*.yaml")`
 
-    Example: `fext('txt', 'py')` -> *{.txt,.py}
+    Consider native shell alternatives in special cases:
+
+    - any file: `shtab.FILE` (instead of `glob("*")`)
+    - any directory: `shtab.DIRECTORY` (instead of `glob("*/")`)
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{abs(hash(extensions))}",
-        "zsh": f"_files -g '*{pre}({'|'.join(extensions)})'",
-        "tcsh": f"f:*{pre}{{{','.join(extensions)}}}",
-        "fish": f"(__fish_complete_suffix {pre}{f' {pre}'.join(extensions)})", "preamble": {
+        "bash": f"_shtab_pattern_compgen_{abs(hash(patterns))}",
+        "zsh": f"_files -g '({'|'.join(patterns)})'", "tcsh": f"f:{{{','.join(patterns)}}}",
+        "fish": f"(_shtab_pattern_compgen_{abs(hash(patterns))})", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{abs(hash(extensions))}() {{
-  compgen -d -- $1  # recurse into subdirs
-  for ext in {join(extensions)}; do
-    compgen -f -X '!*?.'$ext -- $1
+_shtab_pattern_compgen_{abs(hash(patterns))}() {{
+  for ext in {join(patterns)}; do
+    compgen -f -X "!$ext" -- $1
   done
+  compgen -d -- $1  # recurse into subdirs
 }}
+""", "fish": f"""
+function _shtab_pattern_compgen_{abs(hash(patterns))}
+  set comp (commandline -ct)
+  for pattern in {join(patterns)}
+    __fish_complete_path "$comp" | string match -e -- "$pattern"
+  end
+  __fish_complete_path "$comp" | string match -e "*/"  # recurse into subdirs
+end
 """}}
 
 

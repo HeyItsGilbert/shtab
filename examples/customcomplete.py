@@ -24,7 +24,7 @@ _shtab_greeter_compgen_PYModules() {{
 def process(args):
     print(f"received <token>={args.token} [<suffix>={args.suffix}]"
           f" --input-file={args.input_file} --output-name={args.output_name}"
-          f" --text-file={args.text_file} --hidden-opt={args.hidden_opt}")
+          f" --compose-file={args.compose_file} --hidden-opt={args.hidden_opt}")
 
 
 def get_main_parser():
@@ -49,8 +49,9 @@ def get_main_parser():
         help=("output file name. Completes directory names to avoid users"
               " accidentally overwriting existing files."),
     ).complete = shtab.DIRECTORY
-    # pattern tab completion builtin shortcut
-    parser.add_argument("--text-file").complete = shtab.fext("txt")
+    # glob pattern tab completion builtin shortcut
+    parser.add_argument("--compose-file").complete = shtab.glob("docker-compose*.yml",
+                                                                "docker-compose*.yaml")
     parser.add_argument("suffix", choices=['json', 'csv'], default='json', nargs='?',
                         help="Output format")
     # help=None or argparse.SUPPRESS to exclude from CLI --help & completions
