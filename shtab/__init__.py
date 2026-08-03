@@ -1029,15 +1029,16 @@ ${completions}
 
 
 def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] = None,
-             preamble: Union[str, dict[str, str]] = "", choice_functions: Opt[Any] = None) -> str:
+             preamble: str = "", choice_functions: Opt[Any] = None) -> str:
     """
     shell:
       bash/zsh/tcsh/fish
     root_prefix:
       prefix for shell functions to avoid clashes (default: "_{parser.prog}")
     preamble:
-      mapping shell to text to prepend to generated script
-      (e.g. `{"bash": "_myprog_custom_function(){ echo hello }"}`)
+      text to prepend to generated script
+      (e.g. `"_myprog_custom_function(){ echo hello }"`).
+      Consider using `parser.add_argument().complete = shtab.cmd("echo hello")` instead.
     choice_functions:
       *deprecated*
 
@@ -1045,6 +1046,8 @@ def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] 
     completions (e.g. filenames). See <../examples/pathcomplete.py>.
     """
     if isinstance(preamble, dict):
+        # warn("replace `complete(preamble={...})` with `.complete = {'preamble': {...}}`",
+        #      DeprecationWarning, stacklevel=2)
         preamble = preamble.get(shell, "")
     completer = get_completer(shell)
     return completer(
