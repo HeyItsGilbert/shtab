@@ -283,7 +283,9 @@ def fish_candidates(completion, cmdline):
 
 @pytest.fixture
 def test_parser():
-    parser = ArgumentParser(prog="test")
+    # NOTE: not `prog="test"`: fish ships completions for its own `test` builtin which
+    # `complete -c test -e` does not keep away (fish 3.7 re-autoloads them, fish 4.8 doesn't)
+    parser = ArgumentParser(prog="myprog")
     parser.add_argument("--repo", "-r", help="repository to use")
     subparsers = parser.add_subparsers(dest="cmd")
     create = subparsers.add_parser("create", help="create something")
@@ -302,22 +304,20 @@ def test_fish_file_completion(change_dir, test_parser):
     (change_dir / "test_file.txt").touch()
     completion = shtab.complete(test_parser, shell="fish")
     # positional marked `shtab.FILE` (`paths`, after the `name` slot)
-    assert "test_file.txt" in fish_candidates(completion, "test create alpha test_")
+    assert "test_file.txt" in fish_candidates(completion, "myprog create alpha test_")
     # value of an option marked `shtab.FILE` completes files, not the positional's choices
-    candidates = fish_candidates(completion, "test create --exclude-from ")
+    candidates = fish_candidates(completion, "myprog create --exclude-from ")
     assert "test_file.txt" in candidates
     assert "alpha" not in candidates
     # arguments not marked `shtab.FILE` don't complete files (as in the other shells)
-    fish_version = subprocess.check_output(['fish', '--version'], text=True).split()[-1]
-    if fish_version >= '4':
-        assert fish_candidates(completion, "test delete test_") == []
-    assert fish_candidates(completion, "test --repo test_") == []
+    assert fish_candidates(completion, "myprog delete test_") == []
+    assert fish_candidates(completion, "myprog --repo test_") == []
 
 
 def test_fish_global_option_value(test_parser):
     """Subcommands complete after `--global-opt value`: https://github.com/tqdm/shtab/issues/228"""
     completion = shtab.complete(test_parser, shell="fish")
-    candidates = fish_candidates(completion, "test --repo x ")
+    candidates = fish_candidates(completion, "myprog --repo x ")
     assert {"create", "delete", "list"} <= set(candidates)
 
 
@@ -325,7 +325,7 @@ def test_fish_value_equal_to_command_name(test_parser):
     """Values matching command names must not confuse: https://github.com/tqdm/shtab/issues/229"""
     completion = shtab.complete(test_parser, shell="fish")
     # `list` is the value of `delete`'s `name` positional, not the `list` subcommand
-    candidates = fish_candidates(completion, "test delete list --")
+    candidates = fish_candidates(completion, "myprog delete list --")
     assert "--force" in candidates
     assert "--short" not in candidates
 
@@ -334,9 +334,9 @@ def test_fish_positional_order(test_parser):
     """Positionals are completed at the right slot: https://github.com/tqdm/shtab/issues/230"""
     completion = shtab.complete(test_parser, shell="fish")
     # first slot offers the `name` choices
-    assert {"alpha", "beta"} <= set(fish_candidates(completion, "test create "))
+    assert {"alpha", "beta"} <= set(fish_candidates(completion, "myprog create "))
     # later slots (the `paths` positional) must not re-offer them
-    assert "alpha" not in fish_candidates(completion, "test create alpha alp")
+    assert "alpha" not in fish_candidates(completion, "myprog create alpha alp")
 
 
 def test_fish_help_expansion():
