@@ -862,6 +862,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
         """
         log_prefix = "| " * len(path)
         log.debug("%sParser @ %d", log_prefix, len(path))
+        get_help = cparser._get_formatter()._expand_help
         for optional in cparser._get_optional_actions():
             log.debug("%s| Optional: %s", log_prefix, optional.dest)
             if optional.help == SUPPRESS:
@@ -883,7 +884,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 else:
                     output.append("-x")
             if optional.help:
-                output.append(f'-d {quote(optional.help)}')
+                output.append(f'-d {quote(get_help(optional))}')
             completions.append(' '.join(output))
 
         index = 0          # the next positional slot (number of preceding positional arguments)
@@ -897,6 +898,13 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 # positional subcommand
                 public = get_public_subcommands(positional)
                 pos_test = pos_condition(index, 1, open_ended)
+                # fallback to `add_parser(help)` when missing subparser(description);
+                # keyed by id() to cover aliases
+                subcmd_help = {
+                    id(positional.choices[i.dest]): i.help
+                    for i in positional._get_subactions()  # type: ignore[attr-defined]
+                    if i.dest in positional.choices}
+
                 for subcmd, subparser in positional.choices.items():
                     if subcmd not in public:
                         continue
@@ -904,8 +912,9 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     commands.append(" ".join(path + [subcmd]))
                     output = start_output(path, pos_test)
                     output.append(f"-a {quote(subcmd)}")
-                    if subparser.description:
-                        desc = subparser.description.strip().split("\n")[0]
+                    desc = subparser.description or subcmd_help.get(id(subparser)) or ""
+                    desc = desc.strip().split("\n")[0]
+                    if desc:
                         output.append(f'-d {quote(desc)}')
                     completions.append(' '.join(output))
                     recurse_parser(subparser, path + [subcmd])
@@ -924,7 +933,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output = None
                 if output is not None:
                     if positional.help:
-                        desc = positional.help.strip().split("\n")[0]
+                        desc = get_help(positional).strip().split("\n")[0]
                         output.append(f'-d {quote(desc)}')
                     completions.append(' '.join(output))
                 if width is None:
