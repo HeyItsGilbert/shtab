@@ -20,7 +20,8 @@ class Bash:
     def test(self, cmd="1", failure_message=""):
         """Equivalent to `bash -c '{init}; [[ {cmd} ]]'`."""
         init = self.init + "\n" if self.init else ""
-        proc = subprocess.Popen(['bash', '-o', 'pipefail', '-euc', f"{init}[[ {cmd} ]]"])
+        proc = subprocess.Popen(['bash', '-o', 'pipefail', '-euc', f"{init}[[ {cmd} ]]"],
+                                text=True)
         stdout, stderr = proc.communicate()
         assert (0 == proc.wait() and not stdout and not stderr), f"""\
 {failure_message}
