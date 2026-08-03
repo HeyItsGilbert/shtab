@@ -146,13 +146,6 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
     if choice_functions:
         choice_type2fn.update(choice_functions)
 
-    def get_option_strings(parser):
-        """Flattened list of all `parser`'s option strings."""
-        return sum(
-            (opt.option_strings for opt in parser._get_optional_actions() if opt.help != SUPPRESS),
-            [],
-        )
-
     def recurse(parser, prefix):
         """Recurse through subparsers, appending to the return lists"""
         subparsers = []
@@ -231,7 +224,10 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
             log.debug(f"subcommands:{prefix}:{discovered_subparsers}")
 
         # optional arguments
-        option_strings.append(f"{prefix}_option_strings=({join(get_option_strings(parser))})")
+        option_strings_list = join(
+            sum((opt.option_strings
+                 for opt in parser._get_optional_actions() if opt.help != SUPPRESS), []))
+        option_strings.append(f"{prefix}_option_strings=({option_strings_list})")
         for optional in parser._get_optional_actions():
             if optional == SUPPRESS:
                 continue
@@ -480,15 +476,6 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
     if choice_functions:
         choice_type2fn.update(choice_functions)
 
-    def is_opt_end(opt):
-        return isinstance(opt, OPTION_END) or opt.nargs == REMAINDER
-
-    def is_opt_multiline(opt):
-        return isinstance(opt, OPTION_MULTI)
-
-    def is_opt_flag(opt):
-        return isinstance(opt, FLAG_OPTION) or opt.nargs == 0
-
     def choices2pattern(choices):
         first = next(iter(choices))
         if isinstance(first, Choice):
@@ -497,10 +484,10 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
 
     def format_optional(opt, parser):
         get_help = parser._get_formatter()._expand_help
-        return (('{nargs}{options}"[{help}]"'
-                 if is_opt_flag(opt) else '{nargs}{options}"[{help}]:{dest}:{pattern}"').format(
-                     nargs=('"(- : *)"'
-                            if is_opt_end(opt) else '"*"' if is_opt_multiline(opt) else ""),
+        return (('{nargs}{options}"[{help}]"' if (isinstance(opt, FLAG_OPTION) or opt.nargs == 0)
+                 else '{nargs}{options}"[{help}]:{dest}:{pattern}"').format(
+                     nargs=('"(- : *)"' if (isinstance(opt, OPTION_END) or opt.nargs == REMAINDER)
+                            else '"*"' if isinstance(opt, OPTION_MULTI) else ""),
                      options=("{{{}}}".format(",".join(opt.option_strings)) if len(
                          opt.option_strings) > 1 else '"{}"'.format("".join(opt.option_strings))),
                      help=escape_zsh(get_help(opt)) if opt.help else "",
@@ -828,18 +815,15 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     """
     prog = parser.prog
     prefix = wordify(f"_shtab_{root_prefix or prog}")
-    completions: list = []
+    completions = []
     # all (sub)command paths, e.g. ["sub", "sub subsub"]
-    commands: list = []
+    commands = []
     # option strings which consume a following value token
-    opts_with_value: set = set()
+    opts_with_value = set()
 
     choice_type2fn = {k: v["fish"] for k, v in CHOICE_FUNCTIONS.items()}
     if choice_functions:
         choice_type2fn.update(choice_functions)
-
-    def is_flag(opt):
-        return isinstance(opt, FLAG_OPTION) or opt.nargs == 0
 
     def pos_condition(index, width, open_ended):
         """Condition suffix restricting a completion to the given positional slot(s)."""
@@ -874,7 +858,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output.append(f"-l {optional_str[2:]}")
                 elif optional_str.startswith("-"):
                     output.append(f"-s {optional_str[1:]}")
-            if not is_flag(optional):
+            if not (isinstance(optional, FLAG_OPTION) or optional.nargs == 0):
                 opts_with_value.update(optional.option_strings)
                 if hasattr(optional, 'complete'):
                     pattern = complete2pattern(optional.complete, 'fish', choice_type2fn)
