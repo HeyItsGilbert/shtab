@@ -360,6 +360,17 @@ def test_fish_subcommand_description():
     assert "-a subB -d 'description wins'" in completion
 
 
+def test_fish_choice_flags():
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--cust", help="custom").complete = {"bash": "_some_func"}
+    parser.add_argument("--fmt", choices=["json", "csv"], help="format")
+    parser.add_argument("posB", choices=["one", "two"], help="a word")
+    completion = shtab.complete(parser, shell="fish")
+    assert "-l cust -x -d custom" in completion
+    assert '-l fmt -xka "json csv" -d format' in completion
+    assert '-ka "one two" -d \'a word\'' in completion
+
+
 @fix_shell
 def test_subparser_custom_complete(shell):
     parser = ArgumentParser(prog="test")

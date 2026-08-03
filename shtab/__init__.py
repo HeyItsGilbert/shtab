@@ -855,6 +855,12 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     if choice_functions:
         choice_type2fn.update(choice_functions)
 
+    def get_candidates(arg):
+        if hasattr(arg, 'complete'):
+            return complete2pattern(arg.complete, 'fish', choice_type2fn, preambles)
+        if arg.choices:
+            return join(map(str, arg.choices))
+
     def pos_condition(index, width, open_ended):
         """Condition suffix restricting a completion to the given positional slot(s)."""
         npos = f"${prefix}_npos"
@@ -890,14 +896,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output.append(f"-s {optional_str[1:]}")
             if not (isinstance(optional, FLAG_OPTION) or optional.nargs == 0):
                 opts_with_value.update(optional.option_strings)
-                if hasattr(optional, 'complete'):
-                    pattern = complete2pattern(optional.complete, 'fish', choice_type2fn,
-                                               preambles)
-                    output.append(f'-xka "{pattern}"')
-                elif optional.choices:
-                    output.append(f'-xka "{join(map(str, optional.choices))}"')
-                else:
-                    output.append("-x")
+                candidates = get_candidates(optional)
+                output.append(f'-xka "{candidates}"' if candidates else "-x")
             if optional.help:
                 output.append(f'-d {quote(get_help(optional))}')
             completions.append(' '.join(output))
@@ -938,16 +938,10 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 # simple argument (file, name...)
                 width = (positional.nargs if isinstance(positional.nargs, int) else
                          1 if positional.nargs in (None, "?") else None)
-                output = start_output(path, pos_condition(index, width, open_ended))
-                if hasattr(positional, 'complete'):
-                    pattern = complete2pattern(positional.complete, 'fish', choice_type2fn,
-                                               preambles)
-                    output.append(f'-ka "{pattern}"')
-                elif positional.choices:
-                    output.append(f'-ka "{join(map(str, positional.choices))}"')
-                else:
-                    output = None
-                if output is not None:
+                candidates = get_candidates(positional)
+                if candidates:
+                    output = start_output(path, pos_condition(index, width, open_ended))
+                    output.append(f'-ka "{candidates}"')
                     if positional.help:
                         desc = get_help(positional).strip().split("\n")[0]
                         output.append(f'-d {quote(desc)}')
