@@ -20,7 +20,7 @@ class Bash:
     def test(self, cmd="1", failure_message=""):
         """Equivalent to `bash -c '{init}; [[ {cmd} ]]'`."""
         init = self.init + "\n" if self.init else ""
-        proc = subprocess.Popen(["bash", "-o", "pipefail", "-euc", f"{init}[[ {cmd} ]]"])
+        proc = subprocess.Popen(['bash', '-o', 'pipefail', '-euc', f"{init}[[ {cmd} ]]"])
         stdout, stderr = proc.communicate()
         assert (0 == proc.wait() and not stdout and not stderr), f"""\
 {failure_message}
@@ -301,20 +301,18 @@ def test_zsh_custom_action_nargs_zero_takes_no_argument(caplog):
     assert not caplog.record_tuples
 
 
-requires_fish = pytest.mark.skipif(not shutil.which("fish"), reason="fish not available")
-
-
 def fish_candidates(completion, cmdline):
     """Source `completion` in fish, then return the completion candidates for `cmdline`."""
+    if not shutil.which('fish'):
+        pytest.skip("fish not available")
     quoted = "'" + cmdline.replace("\\", "\\\\").replace("'", "\\'") + "'"
-    proc = subprocess.run(["fish", "-c", f"{completion}\ncomplete -C{quoted}"],
-                          capture_output=True, text=True, timeout=60)
-    assert proc.returncode == 0, f"fish failed: {proc.stderr}\n{completion}"
+    proc = subprocess.check_output(['fish', '-c', f"{completion}\ncomplete -C{quoted}"], text=True)
     # each output line is "candidate<TAB>description" (or just "candidate")
-    return [line.split("\t")[0] for line in proc.stdout.splitlines() if line.strip()]
+    return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
 
 
-def get_fish_test_parser():
+@pytest.fixture
+def test_parser():
     parser = ArgumentParser(prog="test")
     parser.add_argument("--repo", "-r", help="repository to use")
     subparsers = parser.add_subparsers(dest="cmd")
@@ -329,12 +327,11 @@ def get_fish_test_parser():
     return parser
 
 
-@requires_fish
-def test_fish_file_completion(caplog, change_dir):
+def test_fish_file_completion(caplog, change_dir, test_parser):
     """`shtab.FILE` completes files: https://github.com/tqdm/shtab/issues/227"""
     (change_dir / "test_file.txt").touch()
     with caplog.at_level(logging.INFO):
-        completion = shtab.complete(get_fish_test_parser(), shell="fish")
+        completion = shtab.complete(test_parser, shell="fish")
 
     # positional marked `shtab.FILE` (`paths`, after the `name` slot)
     assert "test_file.txt" in fish_candidates(completion, "test create alpha test_")
@@ -349,11 +346,10 @@ def test_fish_file_completion(caplog, change_dir):
     assert not caplog.record_tuples
 
 
-@requires_fish
-def test_fish_global_option_value(caplog):
+def test_fish_global_option_value(caplog, test_parser):
     """Subcommands complete after `--global-opt value`: https://github.com/tqdm/shtab/issues/228"""
     with caplog.at_level(logging.INFO):
-        completion = shtab.complete(get_fish_test_parser(), shell="fish")
+        completion = shtab.complete(test_parser, shell="fish")
 
     candidates = fish_candidates(completion, "test --repo x ")
     assert {"create", "delete", "list"} <= set(candidates)
@@ -361,11 +357,10 @@ def test_fish_global_option_value(caplog):
     assert not caplog.record_tuples
 
 
-@requires_fish
-def test_fish_value_equal_to_command_name(caplog):
+def test_fish_value_equal_to_command_name(caplog, test_parser):
     """Values matching command names must not confuse: https://github.com/tqdm/shtab/issues/229"""
     with caplog.at_level(logging.INFO):
-        completion = shtab.complete(get_fish_test_parser(), shell="fish")
+        completion = shtab.complete(test_parser, shell="fish")
 
     # `list` is the value of `delete`'s `name` positional, not the `list` subcommand
     candidates = fish_candidates(completion, "test delete list --")
@@ -375,11 +370,10 @@ def test_fish_value_equal_to_command_name(caplog):
     assert not caplog.record_tuples
 
 
-@requires_fish
-def test_fish_positional_order(caplog):
+def test_fish_positional_order(caplog, test_parser):
     """Positionals are completed at the right slot: https://github.com/tqdm/shtab/issues/230"""
     with caplog.at_level(logging.INFO):
-        completion = shtab.complete(get_fish_test_parser(), shell="fish")
+        completion = shtab.complete(test_parser, shell="fish")
 
     # first slot offers the `name` choices
     assert {"alpha", "beta"} <= set(fish_candidates(completion, "test create "))
@@ -389,26 +383,16 @@ def test_fish_positional_order(caplog):
     assert not caplog.record_tuples
 
 
-@requires_fish
-def test_fish_custom_complete(caplog):
-    with caplog.at_level(logging.INFO):
-        parser = ArgumentParser(prog="test")
-        parser.add_argument("posA").complete = {"fish": "(_shtab_test_some_func)"}
-        preamble = {"fish": "function _shtab_test_some_func\n    printf '%s\\n' one two\nend"}
-        completion = shtab.complete(parser, shell="fish", preamble=preamble)
-
-    assert fish_candidates(completion, "test o") == ["one"]
-
-    assert not caplog.record_tuples
-
-
 @fix_shell
 def test_subparser_custom_complete(shell, caplog):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     sub = subparsers.add_parser("sub", help="help message")
-    sub.add_argument("posA").complete = {"bash": "_shtab_test_some_func"}
-    preamble = {"bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}"}
+    sub.add_argument("posA").complete = {
+        "bash": "_shtab_test_some_func", "fish": "(_shtab_test_some_func)"}
+    preamble = {
+        "bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
+        "fish": "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}
     with caplog.at_level(logging.INFO):
         completion = shtab.complete(parser, shell=shell, preamble=preamble)
     print(completion)
@@ -419,6 +403,8 @@ def test_subparser_custom_complete(shell, caplog):
         shell.compgen('-W "$_shtab_test_pos_0_choices"', "s", "sub")
         shell.test('"$($_shtab_test_sub_pos_0_COMPGEN o)" = "one"')
         shell.test('-z "${_shtab_test_COMPGEN-}"')
+    elif shell == "fish":
+        assert fish_candidates(completion, "test sub o") == ["one"]
 
     assert not caplog.record_tuples
 
