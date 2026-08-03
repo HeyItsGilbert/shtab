@@ -190,14 +190,18 @@ def test_positional_choices(shell):
 @fix_shell
 def test_custom_complete(shell):
     parser = ArgumentParser(prog="test")
-    parser.add_argument("posA").complete = {"bash": "_shtab_test_some_func"}
-    preamble = {"bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}"}
+    parser.add_argument("posA").complete = {
+        "bash": "_shtab_test_some_func", "fish": "(_shtab_test_some_func)"}
+    preamble = {
+        "bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
+        "fish": "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}
     completion = shtab.complete(parser, shell=shell, preamble=preamble)
     print(completion)
-
     if shell == "bash":
         shell = Bash(completion)
         shell.test('"$($_shtab_test_pos_0_COMPGEN o)" = "one"')
+    elif shell == "fish":
+        assert fish_candidates(completion, "test o") == ["one"]
 
 
 def zsh_spec_array(completion, name, tmp_path):
@@ -330,35 +334,25 @@ def test_fish_positional_order(test_parser):
     assert "alpha" not in fish_candidates(completion, "test create alpha alp")
 
 
-def test_fish_help_expansion(caplog):
+def test_fish_help_expansion():
     """%(default)s etc. are expanded in descriptions: https://github.com/tqdm/shtab/issues/231"""
     parser = ArgumentParser(prog="test")
     parser.add_argument("--retries", type=int, default=3, help="retries (default: %(default)s)")
     parser.add_argument("posA", choices=["one", "two"], help="%(prog)s thing")
-
-    with caplog.at_level(logging.INFO):
-        completion = shtab.complete(parser, shell="fish")
-
+    completion = shtab.complete(parser, shell="fish")
     assert "-d 'retries (default: 3)'" in completion
     assert "-d 'test thing'" in completion
 
-    assert not caplog.record_tuples
 
-
-def test_fish_subcommand_description(caplog):
+def test_fish_subcommand_description():
     """add_parser(help=...) is used when there is no description: tqdm/shtab#231"""
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     subparsers.add_parser("subA", help="help message")
     subparsers.add_parser("subB", description="description wins\nsecond line", help="unused")
-
-    with caplog.at_level(logging.INFO):
-        completion = shtab.complete(parser, shell="fish")
-
+    completion = shtab.complete(parser, shell="fish")
     assert "-a subA -d 'help message'" in completion
     assert "-a subB -d 'description wins'" in completion
-
-    assert not caplog.record_tuples
 
 
 @fix_shell

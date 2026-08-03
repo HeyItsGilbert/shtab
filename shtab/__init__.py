@@ -129,13 +129,6 @@ def get_public_subcommands(sub):
     return {k for k, v in sub.choices.items() if id(v) in public_parsers}
 
 
-def get_subcommand_helps(sub):
-    """Map `id(subparser)` to the `help` passed to `add_parser` (also covers aliases)."""
-    return {
-        id(sub.choices[i.dest]): i.help
-        for i in sub._get_subactions() if i.dest in sub.choices}
-
-
 def get_bash_commands(root_parser, root_prefix, choice_functions=None):
     """
     Recursive subcommand parser traversal, returning lists of information on
@@ -869,7 +862,6 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
         """
         log_prefix = "| " * len(path)
         log.debug("%sParser @ %d", log_prefix, len(path))
-        # expands %(default)s etc. in help strings, like argparse's own help output
         get_help = cparser._get_formatter()._expand_help
         for optional in cparser._get_optional_actions():
             log.debug("%s| Optional: %s", log_prefix, optional.dest)
@@ -906,9 +898,13 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 # positional subcommand
                 public = get_public_subcommands(positional)
                 pos_test = pos_condition(index, 1, open_ended)
-                # fall back to the `help` given to `add_parser` when a subparser
-                # has no `description` (keyed by id() to also cover aliases)
-                subcmd_help = get_subcommand_helps(positional)
+                # fallback to `add_parser(help)` when missing subparser(description);
+                # keyed by id() to cover aliases
+                subcmd_help = {
+                    id(positional.choices[i.dest]): i.help
+                    for i in positional._get_subactions()  # type: ignore[attr-defined]
+                    if i.dest in positional.choices}
+
                 for subcmd, subparser in positional.choices.items():
                     if subcmd not in public:
                         continue
