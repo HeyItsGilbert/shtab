@@ -340,7 +340,9 @@ def test_fish_file_completion(caplog, change_dir, test_parser):
     assert "test_file.txt" in candidates
     assert "alpha" not in candidates
     # arguments not marked `shtab.FILE` don't complete files (as in the other shells)
-    assert fish_candidates(completion, "test delete test_") == []
+    fish_version = subprocess.check_output(['fish', '--version'], text=True).split()[-1]
+    if fish_version >= '4':
+        assert fish_candidates(completion, "test delete test_") == []
     assert fish_candidates(completion, "test --repo test_") == []
 
     assert not caplog.record_tuples
