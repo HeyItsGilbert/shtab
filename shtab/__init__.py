@@ -128,8 +128,6 @@ class Choice:
     """
     def __init__(self, choice_type: str, required: bool = False) -> None:
         """
-        See below for parameters.
-
         choice_type  : internal `type` name
         required  : controls result of comparison to empty strings
         """
@@ -1042,7 +1040,7 @@ def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] 
     choice_functions:
       *deprecated*
 
-    N.B. `parser.add_argument().complete = ...` can be used to define custom
+    NOTE: `parser.add_argument().complete = ...` can be used to define custom
     completions (e.g. filenames). See <../examples/pathcomplete.py>.
     """
     if isinstance(preamble, dict):
@@ -1081,6 +1079,8 @@ def add_argument_to(
       a subparser (subcommand mode)
     parent:
       required in subcommand mode
+    preamble:
+      see `complete` for details
     """
     if isinstance(option_string, str):
         option_string = [option_string]
