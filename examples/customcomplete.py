@@ -17,11 +17,7 @@ def process(args):
 
 def get_main_parser():
     main_parser = argparse.ArgumentParser(prog="customcomplete")
-    subparsers = main_parser.add_subparsers()
-    # make required (py3.7 API change); vis. https://bugs.python.org/issue16308
-    subparsers.required = True
-    subparsers.dest = "subcommand"
-
+    subparsers = main_parser.add_subparsers(dest="subcommand", required=True)
     parser = subparsers.add_parser("completion", help="print tab completion")
     shtab.add_argument_to(parser, "shell", parent=main_parser) # magic!
 
