@@ -50,7 +50,7 @@ def test_bash(init, test):
 
 def test_bash_compgen():
     shell = Bash()
-    shell.compgen('-W "foo bar foobar"', "fo", "foo foobar")
+    shell.compgen('-W "foo bar foobar"', "f", "foo foobar")
 
 
 def test_choices():

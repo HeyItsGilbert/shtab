@@ -15,6 +15,6 @@ class ShtabProcessor(PydocmdProcessor):
                                         r"[\1](https://github.com/tqdm/shtab/tree/main/\1)",
                                         node.docstring.content, flags=re.M)
         # fix code cross-references
-        node.docstring.content = re.sub(r"([sSee] )`(\w+)`", r"\1[`\2`](#shtab.\2)",
+        node.docstring.content = re.sub(r"([sS]ee )`(\w+)`", r"\1[`\2`](#shtab.\2)",
                                         node.docstring.content, flags=re.M)
         return super()._process(node)
