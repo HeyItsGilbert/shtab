@@ -51,7 +51,6 @@ def test_bash_compgen():
 def test_choices():
     assert "x" in shtab.Optional.FILE
     assert "" in shtab.Optional.FILE
-
     assert "x" in shtab.Required.FILE
     assert "" not in shtab.Required.FILE
 
@@ -74,7 +73,6 @@ def test_main_self_completion(shell, capsys):
         main(["--print-own-completion", shell])
     except SystemExit:
         pass
-
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
@@ -91,13 +89,11 @@ def test_main_output_path(shell, capsys, change_dir, output):
         main(["-s", shell, "shtab.main.get_main_parser", "-o", output])
     except SystemExit:
         pass
-
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
         "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
         "tcsh": "complete shtab", "fish": "complete -c shtab"}
-
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
     else:
@@ -108,7 +104,6 @@ def test_main_output_path(shell, capsys, change_dir, output):
 @fix_shell
 def test_prog_override(shell, capsys):
     main(["-s", shell, "--prog", "foo", "shtab.main.get_main_parser"])
-
     captured = capsys.readouterr()
     assert not captured.err
     if shell == "bash":
@@ -159,7 +154,6 @@ def test_prefix_override(shell, capsys):
     captured = capsys.readouterr()
     print(captured.out)
     assert not captured.err
-
     if shell == "bash":
         shell = Bash(captured.out)
         shell.compgen('-W "${_shtab_foo_option_strings[*]}"', "--h", "--help")
@@ -170,7 +164,6 @@ def test_complete(shell):
     parser = get_main_parser()
     completion = shtab.complete(parser, shell=shell)
     print(completion)
-
     if shell == "bash":
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_shtab_option_strings[*]}"', "--h", "--help")
@@ -180,9 +173,10 @@ def test_complete(shell):
 def test_positional_choices(shell):
     parser = ArgumentParser(prog="test")
     parser.add_argument("posA", choices=["one", "two"])
+    parser.add_argument("posB", choices=["BAA"]).complete = shtab.cmd("echo BZZ")
     completion = shtab.complete(parser, shell=shell)
     print(completion)
-
+    assert "BAA" not in completion and "BZZ" in completion, ".complete should override choices"
     if shell == "bash":
         shell = Bash(completion)
         shell.compgen('-W "$_shtab_test_pos_0_choices"', "o", "one")
@@ -283,8 +277,7 @@ def fish_candidates(completion, cmdline):
 
 @pytest.fixture
 def test_parser():
-    # NOTE: not `prog="test"`: fish ships completions for its own `test` builtin which
-    # `complete -c test -e` does not keep away (fish 3.7 re-autoloads them, fish 4.8 doesn't)
+    # NOTE: `prog="test"` fails on fish<4 due to autoloading of builtin `complete -c test -e`
     parser = ArgumentParser(prog="myprog")
     parser.add_argument("--repo", "-r", help="repository to use")
     subparsers = parser.add_subparsers(dest="cmd")
