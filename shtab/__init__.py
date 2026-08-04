@@ -220,13 +220,12 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
             if positional.help == SUPPRESS:
                 continue
 
-            if hasattr(positional, "complete"):
+            if hasattr(positional, 'complete'):
                 # shtab `.complete = ...` functions
-                comp_pattern = complete2pattern(positional.complete, "bash", choice_type2fn,
+                comp_pattern = complete2pattern(positional.complete, 'bash', choice_type2fn,
                                                 preambles)
                 compgens.append(f"{prefix}_pos_{i}_COMPGEN={quote(comp_pattern)}")
-
-            if positional.choices:
+            elif positional.choices:
                 # choices (including subparsers & shtab `.complete` functions)
                 log.debug(f"choices:{prefix}:{sorted(positional.choices)}")
 
@@ -271,16 +270,14 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
         for optional in parser._get_optional_actions():
             if optional == SUPPRESS:
                 continue
-
             for option_string in optional.option_strings:
-                if hasattr(optional, "complete"):
+                if hasattr(optional, 'complete'):
                     # shtab `.complete = ...` functions
-                    comp_pattern_str = complete2pattern(optional.complete, "bash", choice_type2fn,
+                    comp_pattern_str = complete2pattern(optional.complete, 'bash', choice_type2fn,
                                                         preambles)
                     compgens.append(
                         f"{prefix}_{wordify(option_string)}_COMPGEN={quote(comp_pattern_str)}")
-
-                if optional.choices:
+                elif optional.choices:
                     # choices (including shtab `.complete` functions)
                     this_optional_choices = []
                     for choice in optional.choices:
@@ -510,11 +507,14 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
     if choice_functions:
         choice_type2fn.update(choice_functions)
 
-    def choices2pattern(choices):
-        first = next(iter(choices))
-        if isinstance(first, Choice):
-            return choice_type2fn[first.type]
-        return "({})".format(" ".join(map(str, choices)))
+    def get_candidates(arg):
+        if hasattr(arg, 'complete'):
+            return complete2pattern(arg.complete, 'zsh', choice_type2fn, preambles)
+        if arg.choices:
+            first = next(iter(arg.choices))
+            if isinstance(first, Choice):
+                return choice_type2fn[first.type]
+            return "({})".format(" ".join(map(str, arg.choices)))
 
     def format_optional(opt, parser):
         get_help = parser._get_formatter()._expand_help
@@ -524,22 +524,16 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
                             else '"*"' if isinstance(opt, OPTION_MULTI) else ""),
                      options=("{{{}}}".format(",".join(opt.option_strings)) if len(
                          opt.option_strings) > 1 else '"{}"'.format("".join(opt.option_strings))),
-                     help=escape_zsh(get_help(opt)) if opt.help else "",
-                     dest=opt.dest,
-                     pattern=complete2pattern(opt.complete, "zsh", choice_type2fn, preambles)
-                     if hasattr(opt, "complete") else
-                     choices2pattern(opt.choices) if opt.choices else "",
-                 ).replace('""', ""))
+                     help=escape_zsh(get_help(opt)) if opt.help else "", dest=opt.dest,
+                     pattern=get_candidates(opt) or "").replace('""', ''))
 
     def format_positional(opt, parser):
         get_help = parser._get_formatter()._expand_help
         return '"{nargs}:{help}:{pattern}"'.format(
             nargs={ONE_OR_MORE: "(*)", ZERO_OR_MORE: "(*):",
-                   REMAINDER: "(-)*:"}.get(opt.nargs, ""),
-            help=escape_zsh((get_help(opt) if opt.help else opt.dest).strip().split("\n")[0]),
-            pattern=complete2pattern(opt.complete, "zsh", choice_type2fn, preambles) if hasattr(
-                opt, "complete") else choices2pattern(opt.choices) if opt.choices else "",
-        )
+                   REMAINDER: "(-)*:"}.get(opt.nargs, ""), help=escape_zsh(
+                       (get_help(opt) if opt.help else opt.dest).strip().split("\n")[0]),
+            pattern=get_candidates(opt) or "")
 
     # {cmd: {"help": help, "arguments": [arguments]}}
     all_commands = {
@@ -737,13 +731,13 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
         choice_type2fn.update(choice_functions)
 
     def get_specials(arg, arg_type, arg_sel):
-        if arg.choices:
-            choice_strs = ' '.join(map(str, arg.choices))
-            yield f"'{arg_type}/{arg_sel}/({choice_strs})/'"
-        elif hasattr(arg, 'complete'):
+        if hasattr(arg, 'complete'):
             complete_fn = complete2pattern(arg.complete, 'tcsh', choice_type2fn, preambles)
             if complete_fn:
                 yield f"'{arg_type}/{arg_sel}/{complete_fn}/'"
+        elif arg.choices:
+            choice_strs = ' '.join(map(str, arg.choices))
+            yield f"'{arg_type}/{arg_sel}/({choice_strs})/'"
 
     def recurse_parser(cparser, positional_idx, requirements=None):
         log_prefix = "| " * positional_idx
@@ -791,9 +785,7 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
                 max_idx = len(nn) + 1
                 checks = [f'("$cmd[{iidx}]" == "{n}")' for iidx, n in enumerate(nn, start=2)]
                 condition = f"$#cmd >= {max_idx} && " + " && ".join(checks)
-                if arg.choices:
-                    nlist.append(f"if ( {condition} ) echo {join(map(str, arg.choices))}")
-                elif hasattr(arg, 'complete'):
+                if hasattr(arg, 'complete'):
                     complete_fn = complete2pattern(arg.complete, 'tcsh', choice_type2fn, preambles)
                     if complete_fn:
                         if complete_fn.startswith('`') and complete_fn.endswith('`'):
@@ -801,6 +793,8 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
                             nlist.append(f"if ( {condition} ) eval {complete_fn.strip('`')}")
                         else:
                             nlist.append(f"if ( {condition} ) {complete_fn}")
+                elif arg.choices:
+                    nlist.append(f"if ( {condition} ) echo {join(map(str, arg.choices))}")
             if nlist:
                 nlist_str = '; '.join(nlist)
                 # pad $cmd so indexing it never runs out of range.
@@ -855,6 +849,12 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     if choice_functions:
         choice_type2fn.update(choice_functions)
 
+    def get_candidates(arg):
+        if hasattr(arg, 'complete'):
+            return complete2pattern(arg.complete, 'fish', choice_type2fn, preambles)
+        if arg.choices:
+            return join(map(str, arg.choices))
+
     def pos_condition(index, width, open_ended):
         """Condition suffix restricting a completion to the given positional slot(s)."""
         npos = f"${prefix}_npos"
@@ -890,14 +890,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output.append(f"-s {optional_str[1:]}")
             if not (isinstance(optional, FLAG_OPTION) or optional.nargs == 0):
                 opts_with_value.update(optional.option_strings)
-                if hasattr(optional, 'complete'):
-                    pattern = complete2pattern(optional.complete, 'fish', choice_type2fn,
-                                               preambles)
-                    output.append(f'-xka "{pattern}"')
-                elif optional.choices:
-                    output.append(f'-xka "{join(map(str, optional.choices))}"')
-                else:
-                    output.append("-x")
+                candidates = get_candidates(optional)
+                output.append(f'-xka "{candidates}"' if candidates else "-x")
             if optional.help:
                 output.append(f'-d {quote(get_help(optional))}')
             completions.append(' '.join(output))
@@ -938,16 +932,10 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 # simple argument (file, name...)
                 width = (positional.nargs if isinstance(positional.nargs, int) else
                          1 if positional.nargs in (None, "?") else None)
-                output = start_output(path, pos_condition(index, width, open_ended))
-                if hasattr(positional, 'complete'):
-                    pattern = complete2pattern(positional.complete, 'fish', choice_type2fn,
-                                               preambles)
-                    output.append(f'-ka "{pattern}"')
-                elif positional.choices:
-                    output.append(f'-ka "{join(map(str, positional.choices))}"')
-                else:
-                    output = None
-                if output is not None:
+                candidates = get_candidates(positional)
+                if candidates:
+                    output = start_output(path, pos_condition(index, width, open_ended))
+                    output.append(f'-ka "{candidates}"')
                     if positional.help:
                         desc = get_help(positional).strip().split("\n")[0]
                         output.append(f'-d {quote(desc)}')

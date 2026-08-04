@@ -51,7 +51,6 @@ def test_bash_compgen():
 def test_choices():
     assert "x" in shtab.Optional.FILE
     assert "" in shtab.Optional.FILE
-
     assert "x" in shtab.Required.FILE
     assert "" not in shtab.Required.FILE
 
@@ -74,7 +73,6 @@ def test_main_self_completion(shell, capsys):
         main(["--print-own-completion", shell])
     except SystemExit:
         pass
-
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
@@ -91,13 +89,11 @@ def test_main_output_path(shell, capsys, change_dir, output):
         main(["-s", shell, "shtab.main.get_main_parser", "-o", output])
     except SystemExit:
         pass
-
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
         "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
         "tcsh": "complete shtab", "fish": "complete -c shtab"}
-
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
     else:
@@ -108,7 +104,6 @@ def test_main_output_path(shell, capsys, change_dir, output):
 @fix_shell
 def test_prog_override(shell, capsys):
     main(["-s", shell, "--prog", "foo", "shtab.main.get_main_parser"])
-
     captured = capsys.readouterr()
     assert not captured.err
     if shell == "bash":
@@ -159,7 +154,6 @@ def test_prefix_override(shell, capsys):
     captured = capsys.readouterr()
     print(captured.out)
     assert not captured.err
-
     if shell == "bash":
         shell = Bash(captured.out)
         shell.compgen('-W "${_shtab_foo_option_strings[*]}"', "--h", "--help")
@@ -170,7 +164,6 @@ def test_complete(shell):
     parser = get_main_parser()
     completion = shtab.complete(parser, shell=shell)
     print(completion)
-
     if shell == "bash":
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_shtab_option_strings[*]}"', "--h", "--help")
@@ -180,9 +173,10 @@ def test_complete(shell):
 def test_positional_choices(shell):
     parser = ArgumentParser(prog="test")
     parser.add_argument("posA", choices=["one", "two"])
+    parser.add_argument("posB", choices=["BAA"]).complete = shtab.cmd("echo BZZ")
     completion = shtab.complete(parser, shell=shell)
     print(completion)
-
+    assert "BAA" not in completion and "BZZ" in completion, ".complete should override choices"
     if shell == "bash":
         shell = Bash(completion)
         shell.compgen('-W "$_shtab_test_pos_0_choices"', "o", "one")
@@ -283,7 +277,8 @@ def fish_candidates(completion, cmdline):
 
 @pytest.fixture
 def test_parser():
-    parser = ArgumentParser(prog="test")
+    # NOTE: `prog="test"` fails on fish<4 due to autoloading of builtin `complete -c test -e`
+    parser = ArgumentParser(prog="myprog")
     parser.add_argument("--repo", "-r", help="repository to use")
     subparsers = parser.add_subparsers(dest="cmd")
     create = subparsers.add_parser("create", help="create something")
@@ -302,22 +297,20 @@ def test_fish_file_completion(change_dir, test_parser):
     (change_dir / "test_file.txt").touch()
     completion = shtab.complete(test_parser, shell="fish")
     # positional marked `shtab.FILE` (`paths`, after the `name` slot)
-    assert "test_file.txt" in fish_candidates(completion, "test create alpha test_")
+    assert "test_file.txt" in fish_candidates(completion, "myprog create alpha test_")
     # value of an option marked `shtab.FILE` completes files, not the positional's choices
-    candidates = fish_candidates(completion, "test create --exclude-from ")
+    candidates = fish_candidates(completion, "myprog create --exclude-from ")
     assert "test_file.txt" in candidates
     assert "alpha" not in candidates
     # arguments not marked `shtab.FILE` don't complete files (as in the other shells)
-    fish_version = subprocess.check_output(['fish', '--version'], text=True).split()[-1]
-    if fish_version >= '4':
-        assert fish_candidates(completion, "test delete test_") == []
-    assert fish_candidates(completion, "test --repo test_") == []
+    assert fish_candidates(completion, "myprog delete test_") == []
+    assert fish_candidates(completion, "myprog --repo test_") == []
 
 
 def test_fish_global_option_value(test_parser):
     """Subcommands complete after `--global-opt value`: https://github.com/tqdm/shtab/issues/228"""
     completion = shtab.complete(test_parser, shell="fish")
-    candidates = fish_candidates(completion, "test --repo x ")
+    candidates = fish_candidates(completion, "myprog --repo x ")
     assert {"create", "delete", "list"} <= set(candidates)
 
 
@@ -325,7 +318,7 @@ def test_fish_value_equal_to_command_name(test_parser):
     """Values matching command names must not confuse: https://github.com/tqdm/shtab/issues/229"""
     completion = shtab.complete(test_parser, shell="fish")
     # `list` is the value of `delete`'s `name` positional, not the `list` subcommand
-    candidates = fish_candidates(completion, "test delete list --")
+    candidates = fish_candidates(completion, "myprog delete list --")
     assert "--force" in candidates
     assert "--short" not in candidates
 
@@ -334,9 +327,9 @@ def test_fish_positional_order(test_parser):
     """Positionals are completed at the right slot: https://github.com/tqdm/shtab/issues/230"""
     completion = shtab.complete(test_parser, shell="fish")
     # first slot offers the `name` choices
-    assert {"alpha", "beta"} <= set(fish_candidates(completion, "test create "))
+    assert {"alpha", "beta"} <= set(fish_candidates(completion, "myprog create "))
     # later slots (the `paths` positional) must not re-offer them
-    assert "alpha" not in fish_candidates(completion, "test create alpha alp")
+    assert "alpha" not in fish_candidates(completion, "myprog create alpha alp")
 
 
 def test_fish_help_expansion():
@@ -358,6 +351,17 @@ def test_fish_subcommand_description():
     completion = shtab.complete(parser, shell="fish")
     assert "-a subA -d 'help message'" in completion
     assert "-a subB -d 'description wins'" in completion
+
+
+def test_fish_choice_flags():
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--cust", help="custom").complete = {"bash": "_some_func"}
+    parser.add_argument("--fmt", choices=["json", "csv"], help="format")
+    parser.add_argument("posB", choices=["one", "two"], help="a word")
+    completion = shtab.complete(parser, shell="fish")
+    assert "-l cust -x -d custom" in completion
+    assert '-l fmt -xka "json csv" -d format' in completion
+    assert '-ka "one two" -d \'a word\'' in completion
 
 
 @fix_shell
