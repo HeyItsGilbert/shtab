@@ -44,8 +44,8 @@ jobs:
           echo "::group::$s"
           for r in main "$ref"; do
             git checkout -
-            python examples/pathcomplete.py -s $s > "$r/pathcomplete.$s" || :
-            python examples/customcomplete.py completion $s > "$r/customcomplete.$s" || :
+            python examples/pathcomplete.py -s $s | sed -r 's/(_shtab_pattern_compgen_)[0-9]+/\1HASH/g' > "$r/pathcomplete.$s" || :
+            python examples/customcomplete.py completion $s | sed -r 's/(_shtab_pattern_compgen_)[0-9]+/\1HASH/g' > "$r/customcomplete.$s" || :
           done
           for ex in pathcomplete customcomplete; do
             d=$(diff {main,"$ref"}/$ex.$s || :)
