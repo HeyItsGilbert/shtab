@@ -8,10 +8,13 @@ class ShtabProcessor(PydocmdProcessor):
         if not getattr(node, "docstring", None):
             return super()._process(node)
         # convert parameter lists to markdown list
-        node.docstring.content = re.sub(r"^(\w+)(:.*?)$", r"* __\1__\2", node.docstring.content,
-                                        flags=re.M)
-        # fix code cross-references
+        node.docstring.content = re.sub(r"^([a-z]\w+)(:.*?)$", r"* __\1__\2",
+                                        node.docstring.content, flags=re.M)
+        # fix file cross-references
         node.docstring.content = re.sub(r"<../(\S+)>",
                                         r"[\1](https://github.com/tqdm/shtab/tree/main/\1)",
+                                        node.docstring.content, flags=re.M)
+        # fix code cross-references
+        node.docstring.content = re.sub(r"([sSee] )`(\w+)`", r"\1[`\2`](#shtab.\2)",
                                         node.docstring.content, flags=re.M)
         return super()._process(node)

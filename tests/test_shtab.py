@@ -191,12 +191,16 @@ def test_positional_choices(shell):
 @fix_shell
 def test_custom_complete(shell):
     parser = ArgumentParser(prog="test")
-    parser.add_argument("posA").complete = {
+    complete = parser.add_argument("posA").complete = {
         "bash": "_shtab_test_some_func", "fish": "(_shtab_test_some_func)"}
     preamble = {
         "bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
         "fish": "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}
-    completion = shtab.complete(parser, shell=shell, preamble=preamble)
+    # with pytest.warns(DeprecationWarning):
+    completion_deprecated = shtab.complete(parser, shell=shell, preamble=preamble)
+    complete['preamble'] = preamble
+    completion = shtab.complete(parser, shell=shell)
+    assert completion == completion_deprecated
     print(completion)
     if shell == "bash":
         shell = Bash(completion)
@@ -362,11 +366,10 @@ def test_subparser_custom_complete(shell):
     subparsers = parser.add_subparsers()
     sub = subparsers.add_parser("sub", help="help message")
     sub.add_argument("posA").complete = {
-        "bash": "_shtab_test_some_func", "fish": "(_shtab_test_some_func)"}
-    preamble = {
-        "bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
-        "fish": "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}
-    completion = shtab.complete(parser, shell=shell, preamble=preamble)
+        "bash": "_shtab_test_some_func", "fish": "(_shtab_test_some_func)", 'preamble': {
+            "bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
+            "fish": "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}}
+    completion = shtab.complete(parser, shell=shell)
     print(completion)
     if shell == "bash":
         shell = Bash(completion)
@@ -383,9 +386,10 @@ def test_subparser_aliases(shell):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     sub = subparsers.add_parser("sub", aliases=["xsub", "ysub"], help="help message")
-    sub.add_argument("posA").complete = {"bash": "_shtab_test_some_func"}
-    preamble = {"bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}"}
-    completion = shtab.complete(parser, shell=shell, preamble=preamble)
+    sub.add_argument("posA").complete = {
+        "bash": "_shtab_test_some_func",
+        'preamble': {"bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}"}}
+    completion = shtab.complete(parser, shell=shell)
     print(completion)
 
     if shell == "bash":

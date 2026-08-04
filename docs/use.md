@@ -181,7 +181,7 @@ Add direct support to scripts for a little more configurability:
 
 === "argparse"
 
-    ```{.py title="pathcomplete.py" linenums="1" hl_lines="7 9-10"}
+    ```{.py title="pathcomplete.py" linenums="1" hl_lines="7 9-11 14"}
     #!/usr/bin/env python
     import argparse
     import shtab  # for completion magic
@@ -192,12 +192,17 @@ Add direct support to scripts for a little more configurability:
         # file & directory tab complete
         parser.add_argument("file", nargs="?").complete = shtab.FILE
         parser.add_argument("--dir", default=".").complete = shtab.DIRECTORY
+        parser.add_argument("--config").complete = shtab.glob('*.toml', '*.yml', '*.yaml', '*.json')
+        # WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
+        parser.add_argument("--branch",
+                            help="git branch from current workdir").complete = shtab.cmd("git branch")
         return parser
 
     if __name__ == "__main__":
         parser = get_main_parser()
         args = parser.parse_args()
-        print("received <file>=%r --dir=%r" % (args.file, args.dir))
+        print(f"received <file>={args.file} --dir={args.dir}"
+              f" --config={args.config} --branch={args.branch}")
     ```
 
 === "docopt"
