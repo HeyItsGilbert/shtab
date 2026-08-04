@@ -115,7 +115,7 @@ def mark_completer(shell):
     return wrapper
 
 
-def get_completer(shell: str):
+def get_completer(shell):
     try:
         return _SUPPORTED_COMPLETERS[shell]
     except KeyError:
@@ -183,7 +183,7 @@ def complete2pattern(opt_complete: CompleteType, shell: str, choice_type2fn: dic
     return choice_type2fn[opt_complete]
 
 
-def wordify(string: str) -> str:
+def wordify(string: str):
     """Replace non-word chars [\\W] with underscores [_]"""
     return re.sub("\\W", "_", string)
 
