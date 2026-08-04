@@ -457,18 +457,21 @@ ${root_prefix}() {
 
   # Generate the completions
 
+  COMPREPLY=()
   if [[ $pos_only = 0 && "${completing_word}" == -* ]]; then
     # optional argument started: use option strings
-    mapfile -t COMPREPLY < <(compgen -W "${current_option_strings[*]}" -- "${completing_word}")
+    while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
+      compgen -W "${current_option_strings[*]}" -- "${completing_word}")
   elif [[ "${previous_word}" == ">" || "${previous_word}" == ">>" ||
           "${previous_word}" =~ ^[12]">" || "${previous_word}" =~ ^[12]">>" ]]; then
     # handle redirection operators
-    mapfile -t COMPREPLY < <(compgen -f -- "${completing_word}")
+    while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
   else
     # use choices & compgen
     [ -n "${current_action_compgen}" ] &&
-      mapfile -t COMPREPLY < <("${current_action_compgen}" "${completing_word}")
-    mapfile -t -O "${#COMPREPLY[@]}" COMPREPLY < <(
+      while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
+        "${current_action_compgen}" "${completing_word}")
+    while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_action_choices[*]}" -- "${completing_word}")
   fi
 
