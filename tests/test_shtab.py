@@ -142,7 +142,7 @@ def test_prog_scripts(shell, capsys):
             'complete -c script.py -e', 'complete -c script.py -f',
             f"{start} -s h -l help -d 'show this help message and exit'",
             f"{start} -l version -d 'show program'\"'\"'s version number and exit'",
-            f'{start} -s s -l shell -xka "bash zsh tcsh fish"',
+            f'{start} -s s -l shell -xka "bash zsh tcsh fish powershell"',
             f"{start} -s o -l output -x -d 'output file (- for stdout)'",
             f"{start} -l prefix -x -d 'prepended to generated functions to avoid clashes'",
             f"{start} -l preamble -x -d 'prepended to generated script'",
@@ -150,7 +150,7 @@ def test_prog_scripts(shell, capsys):
             f"{start} -s u -l error-unimportable -d"
             " 'raise errors if `parser` is not found in $PYTHONPATH'",
             f"{start} -l verbose -d 'Log debug information'",
-            f'{start} -l print-own-completion -xka "bash zsh tcsh fish" -d'
+            f'{start} -l print-own-completion -xka "bash zsh tcsh fish powershell" -d'
             " 'print shtab'\"'\"'s own completion'"]
     elif shell == "powershell":
         assert script_py == [
