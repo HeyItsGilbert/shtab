@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import re
 from argparse import (ONE_OR_MORE, REMAINDER, SUPPRESS, ZERO_OR_MORE, Action, ArgumentParser,
@@ -42,6 +43,10 @@ FLAG_OPTION = (
 )
 
 
+def sha(obj):
+    return hashlib.sha256(repr(obj).encode()).hexdigest()[:8]
+
+
 def glob(*patterns: str) -> CompleteType:
     """
     Example: `glob("*.yml", "*.yaml")`
@@ -52,19 +57,19 @@ def glob(*patterns: str) -> CompleteType:
     - any directory: `shtab.DIRECTORY` (instead of `glob("*/")`)
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{abs(hash(patterns))}",
+        "bash": f"_shtab_pattern_compgen_{sha(patterns)}",
         "zsh": f"_files -g '({'|'.join(patterns)})'", "tcsh": f"f:{{{','.join(patterns)}}}",
-        "fish": f"(_shtab_pattern_compgen_{abs(hash(patterns))})", "preamble": {
+        "fish": f"(_shtab_pattern_compgen_{sha(patterns)})", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{abs(hash(patterns))}() {{
+_shtab_pattern_compgen_{sha(patterns)}() {{
   for ext in {join(patterns)}; do
     compgen -f -X "!$ext" -- $1
   done
   compgen -d -- $1  # recurse into subdirs
 }}
 """, "fish": f"""
-function _shtab_pattern_compgen_{abs(hash(patterns))}
+function _shtab_pattern_compgen_{sha(patterns)}
   set comp (commandline -ct)
   for pattern in {join(patterns)}
     __fish_complete_path "$comp" | string match -e -- "$pattern"
@@ -82,11 +87,11 @@ def cmd(command: str) -> CompleteType:
     Example: `cmd("git branch")`
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{abs(hash(command))}", "zsh": f"($({command}))",
+        "bash": f"_shtab_pattern_compgen_{sha(command)}", "zsh": f"($({command}))",
         "tcsh": f"`{command}`", "fish": f"({command})", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{abs(hash(command))}() {{
+_shtab_pattern_compgen_{sha(command)}() {{
   compgen -W "$({command})" -- $1
 }}
 """}}
