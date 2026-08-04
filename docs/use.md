@@ -101,6 +101,7 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
     # Install system-wide (pkg-config fish --variable=completionsdir)
     shtab -u --shell=fish shtab.main.get_main_parser \
       | sudo tee /usr/share/fish/vendor_completions.d/shtab.fish
+    ```
 
 === "powershell"
 
@@ -183,9 +184,9 @@ Assuming this code example is installed in `MY_PROG.cli`, simply run:
 === "powershell"
 
     ```powershell
-    shtab --shell=powershell -u MY_PROG.command.main.get_main_parser `
-      | Out-File -FilePath ~\MY_PROG_completion.ps1
-    . ~\MY_PROG_completion.ps1
+    shtab --shell=powershell -u MY_PROG.cli.get_main_parser `
+      | Out-File -FilePath ~\MY-PROG_completion.ps1
+    . ~\MY-PROG_completion.ps1
     ```
 
 ### click
