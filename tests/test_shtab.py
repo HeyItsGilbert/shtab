@@ -1,8 +1,13 @@
 """Tests for `shtab`."""
 import logging
 import os
+import pty
+import re
+import select
 import shutil
+import signal
 import subprocess
+import time
 from argparse import SUPPRESS, Action, ArgumentParser
 
 import pytest
@@ -275,6 +280,56 @@ def fish_candidates(completion, cmdline):
     return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
 
 
+def tcsh_candidates(completion, cmdline, cwd):
+    """
+    Return the completion candidates tcsh offers for `cmdline`.
+
+    tcsh has no `complete -C` equivalent, so drive an interactive one through a pty.
+    """
+    if not shutil.which('tcsh'):
+        pytest.skip("tcsh not available")
+    script = cwd / "completion.tcsh"
+    script.write_text(completion)
+
+    pid, fd = pty.fork()
+    if pid == 0:   # child
+        os.chdir(cwd)
+        os.environ['TERM'] = 'xterm'
+        os.execvp('tcsh', ['tcsh', '-f', '-i'])
+
+    def read(timeout=5.0):
+        """Read until nothing arrives for a while (or `timeout` elapses)."""
+        out = b""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if select.select([fd], [], [], 0.1)[0]:
+                try:
+                    chunk = os.read(fd, 1 << 16)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                out += chunk
+                deadline = min(deadline, time.time() + 0.5)
+        return out.decode('utf-8', 'replace')
+
+    try:
+        read()                                 # prompt
+        os.write(fd, f"set autolist\nsource {script}\n".encode())
+        read()
+        os.write(fd, cmdline.encode() + b"\t") # `autolist` lists the candidates
+        output = re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r]", "", read())
+    finally:
+        os.close(fd)
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+
+    # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
+    return [
+        word for line in output.splitlines() if line.strip() and cmdline.strip() not in line
+        for word in line.split()]
+
+
 @pytest.fixture
 def test_parser():
     # NOTE: `prog="test"` fails on fish<4 due to autoloading of builtin `complete -c test -e`
@@ -362,6 +417,38 @@ def test_fish_choice_flags():
     assert "-l cust -x -d custom" in completion
     assert '-l fmt -xka "json csv" -d format' in completion
     assert '-ka "one two" -d \'a word\'' in completion
+
+
+def get_tcsh_pattern_parser():
+    """Two subcommands sharing positional slot 2, one of them `.complete`-ing a pattern."""
+    parser = ArgumentParser(prog="myprog")
+    subparsers = parser.add_subparsers()
+    build = subparsers.add_parser("build", help="build")
+    build.add_argument("cfg", help="config").complete = shtab.glob("*.yml", "*.yaml")
+    run = subparsers.add_parser("run", help="run")
+    run.add_argument("mode", choices=["fast", "slow"], help="mode")
+    return parser
+
+
+def test_tcsh_pattern_in_shared_slot():
+    """Patterns are anchored on the (sub)command: tqdm/shtab#236"""
+    completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
+    # a pattern is not a command, so it can't go in the `p@2@`...`@` list
+    assert "'n/build/f:{*.yml,*.yaml}/'" in completion
+    assert "f:{*.yml,*.yaml}`" not in completion and ") f:" not in completion
+    # commands & choices still do
+    assert '("$cmd[2]" == "run") ' in completion
+
+
+def test_tcsh_pattern_completion(change_dir):
+    """The generated pattern rule works in tcsh itself: tqdm/shtab#236"""
+    for name in ("app.yml", "conf.yaml", "notes.md"):
+        (change_dir / name).touch()
+    completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
+
+    assert tcsh_candidates(completion, "myprog build ", change_dir) == ["app.yml", "conf.yaml"]
+    assert tcsh_candidates(completion, "myprog run ", change_dir) == ["fast", "slow"]
+    assert tcsh_candidates(completion, "myprog ", change_dir) == ["build", "run"]
 
 
 @fix_shell
