@@ -361,7 +361,7 @@ def test_fish_file_completion(change_dir, test_parser):
     assert fish_candidates(completion, "myprog delete test_") == []
     assert fish_candidates(completion, "myprog --repo test_") == []
 
-    # tokens which aren't relative to the cwd: https://github.com/tqdm/shtab/issues/245
+    # not in cwd (#245)
     (change_dir / "subdir").mkdir()
     (change_dir / "subdir" / "nested.txt").touch()
     assert "subdir/nested.txt" in fish_candidates(completion, "myprog create alpha subdir/nes")
