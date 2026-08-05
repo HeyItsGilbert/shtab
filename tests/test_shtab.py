@@ -430,22 +430,26 @@ def test_fish_choice_flags():
 def get_tcsh_pattern_parser():
     """Two subcommands sharing positional slot 2, one of them `.complete`-ing a pattern."""
     parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--conf", help="config file")
     subparsers = parser.add_subparsers()
     build = subparsers.add_parser("build", help="build")
     build.add_argument("cfg", help="config").complete = shtab.glob("*.yml", "*.yaml")
+    build.add_argument("stage", choices=["dev", "prod"], help="stage")
     run = subparsers.add_parser("run", help="run")
     run.add_argument("mode", choices=["fast", "slow"], help="mode")
+    run.add_argument("target", choices=["all", "one"], help="target")
     return parser
 
 
-def test_tcsh_pattern_in_shared_slot():
-    """Patterns are anchored on the (sub)command: tqdm/shtab#236"""
+def test_tcsh_slot_after_subcommand():
+    """A slot directly following a (sub)command is keyed off that word: tqdm/shtab#236"""
     completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
-    # a pattern is not a command, so it can't go in the `p@2@`...`@` list
     assert "'n/build/f:{*.yml,*.yaml}/'" in completion
     assert "f:{*.yml,*.yaml}`" not in completion and ") f:" not in completion
-    # commands & choices still do
-    assert '("$cmd[2]" == "run") ' in completion
+    assert "'n/run/(fast slow)/'" in completion
+    # a slot further away from its (sub)command can only be keyed off its index
+    assert '("$cmd[2]" == "run") ) echo all one' in completion
+    assert '("$cmd[2]" == "build") ) echo dev prod' in completion
 
 
 def test_tcsh_pattern_completion(change_dir):
@@ -457,6 +461,10 @@ def test_tcsh_pattern_completion(change_dir):
     assert tcsh_candidates(completion, "myprog build ", change_dir) == ["app.yml", "conf.yaml"]
     assert tcsh_candidates(completion, "myprog run ", change_dir) == ["fast", "slow"]
     assert tcsh_candidates(completion, "myprog ", change_dir) == ["build", "run"]
+    # completing these does not depend on the slot's index, so options may precede it
+    yml = ["app.yml", "conf.yaml"]
+    assert tcsh_candidates(completion, "myprog --conf c.yml build ", change_dir) == yml
+    assert tcsh_candidates(completion, "myprog --conf c.yml run ", change_dir) == ["fast", "slow"]
 
 
 @fix_shell

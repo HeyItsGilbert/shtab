@@ -790,6 +790,14 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
             # Multiple requirements
             nlist = []
             for nn, arg in ndict.items():
+                if nn and idx == len(nn) + 1:
+                    # this slot directly follows a (sub)command, so key off that word rather
+                    # than its index: a `p@N@` rule below only fires if the slot really is the
+                    # Nth word, i.e. as long as no options precede it. Note that the word alone
+                    # identifies the slot, so a same-named (sub)command elsewhere in the parser
+                    # gets these completions offered, too.
+                    specials.extend(get_specials(arg, 'n', nn[-1]))
+                    continue
                 max_idx = len(nn) + 1
                 checks = [f'("$cmd[{iidx}]" == "{n}")' for iidx, n in enumerate(nn, start=2)]
                 condition = f"$#cmd >= {max_idx} && " + " && ".join(checks)
@@ -799,12 +807,9 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
                         if complete_fn.startswith('`') and complete_fn.endswith('`'):
                             # nested backticks crash tcsh's parser, use `eval` instead
                             nlist.append(f"if ( {condition} ) eval {complete_fn.strip('`')}")
-                        elif nn and idx == len(nn) + 1:
-                            # completion patterns (`f:*.txt`, `d`, ...) are not commands, so
-                            # they can't go in the list below; this slot directly follows a
-                            # (sub)command, so key off that word instead
-                            specials.append(f"'n/{nn[-1]}/{complete_fn}/'")
-                        # else: no way to express a pattern for this slot in tcsh
+                        # else: completion patterns (`f:*.txt`, `d`, ...) are not commands, so
+                        # they cannot go in the list below - and this slot cannot be keyed off
+                        # a (sub)command either, so tcsh has no way to express it
                 elif arg.choices:
                     nlist.append(f"if ( {condition} ) echo {join(map(str, arg.choices))}")
             if nlist:
