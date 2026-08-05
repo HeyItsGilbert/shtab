@@ -26,10 +26,12 @@ ShellType = str
 CompleteType = dict[ShellType, Union[str, dict[ShellType, str]]]
 SUPPORTED_SHELLS: list[ShellType] = []
 _SUPPORTED_COMPLETERS: dict[ShellType, Callable] = {}
+# NOTE: `__fish_complete_path` - unlike `__fish_complete_directories` - does not
+# default to the current token, so it is given explicitly (else only the cwd completes).
 CHOICE_FUNCTIONS: dict[str, CompleteType] = {
     "file": {
         "bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f",
-        "fish": "(__fish_complete_path)"}, "directory": {
+        "fish": "(__fish_complete_path (commandline -ct))"}, "directory": {
             "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
             "fish": "(__fish_complete_directories)"}}
 FILE = CHOICE_FUNCTIONS["file"]
