@@ -361,6 +361,14 @@ def test_fish_file_completion(change_dir, test_parser):
     assert fish_candidates(completion, "myprog delete test_") == []
     assert fish_candidates(completion, "myprog --repo test_") == []
 
+    # not in cwd (#245)
+    (change_dir / "subdir").mkdir()
+    (change_dir / "subdir" / "nested.txt").touch()
+    assert "subdir/nested.txt" in fish_candidates(completion, "myprog create alpha subdir/nes")
+    absolute = str(change_dir / "subdir" / "nes")
+    candidates = fish_candidates(completion, f"myprog create --exclude-from {absolute}")
+    assert any(i.endswith("nested.txt") for i in candidates), candidates
+
 
 def test_fish_global_option_value(test_parser):
     """Subcommands complete after `--global-opt value`: https://github.com/tqdm/shtab/issues/228"""

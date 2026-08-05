@@ -29,7 +29,7 @@ _SUPPORTED_COMPLETERS: dict[ShellType, Callable] = {}
 CHOICE_FUNCTIONS: dict[str, CompleteType] = {
     "file": {
         "bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f",
-        "fish": "(__fish_complete_path)"}, "directory": {
+        "fish": "(__fish_complete_path (commandline -ct))"}, "directory": {
             "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
             "fish": "(__fish_complete_directories)"}}
 FILE = CHOICE_FUNCTIONS["file"]
