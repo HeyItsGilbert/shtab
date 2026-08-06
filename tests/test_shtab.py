@@ -284,9 +284,7 @@ def tcsh_candidates(completion, cmdlines, cwd):
     """
     Return the completion candidates tcsh offers for each of `cmdlines`.
 
-    tcsh has no `complete -C` equivalent, so drive an interactive one through a pty. All the
-    command lines are completed in the same tcsh, which is told to use a distinctive prompt so
-    each one's candidates can be told apart.
+    tcsh has no `complete -C` equivalent, so drive an interactive one through a pty.
     """
     if not shutil.which('tcsh'):
         pytest.skip("tcsh not available")
@@ -301,7 +299,6 @@ def tcsh_candidates(completion, cmdlines, cwd):
         os.chdir(cwd)
         os.environ['TERM'] = 'xterm'
         os.execvp('tcsh', ['tcsh', '-f', '-i'])
-
     output = ""
 
     def read(prompts, timeout=10.0):
@@ -471,8 +468,6 @@ def test_tcsh_pattern_completion(change_dir):
     for name in ("app.yml", "conf.yaml", "notes.md"):
         (change_dir / name).touch()
     completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
-
-    # completing the last two does not depend on the slot's index, so options may precede it
     cmdlines = [
         "myprog build ", "myprog run ", "myprog ", "myprog --conf c.yml build ",
         "myprog --conf c.yml run "]

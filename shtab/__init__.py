@@ -791,11 +791,7 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
             nlist = []
             for nn, arg in ndict.items():
                 if nn and idx == len(nn) + 1:
-                    # this slot directly follows a (sub)command, so key off that word rather
-                    # than its index: a `p@N@` rule below only fires if the slot really is the
-                    # Nth word, i.e. as long as no options precede it. Note that the word alone
-                    # identifies the slot, so a same-named (sub)command elsewhere in the parser
-                    # gets these completions offered, too.
+                    # lookup preceding (sub)command name for completions
                     specials.extend(get_specials(arg, 'n', nn[-1]))
                     continue
                 max_idx = len(nn) + 1
@@ -807,9 +803,9 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
                         if complete_fn.startswith('`') and complete_fn.endswith('`'):
                             # nested backticks crash tcsh's parser, use `eval` instead
                             nlist.append(f"if ( {condition} ) eval {complete_fn.strip('`')}")
-                        # else: completion patterns (`f:*.txt`, `d`, ...) are not commands, so
-                        # they cannot go in the list below - and this slot cannot be keyed off
-                        # a (sub)command either, so tcsh has no way to express it
+                        else:
+                            log.debug("warning: tcsh cannot express completion patterns"
+                                      " (`f:*.txt`, `d`, ...) as commands")
                 elif arg.choices:
                     nlist.append(f"if ( {condition} ) echo {join(map(str, arg.choices))}")
             if nlist:
