@@ -280,9 +280,9 @@ def fish_candidates(completion, cmdline):
     return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
 
 
-def tcsh_candidates(completion, cmdline, cwd):
+def tcsh_candidates(completion, cmdlines, cwd):
     """
-    Return the completion candidates tcsh offers for `cmdline`.
+    Return the completion candidates tcsh offers for each of `cmdlines`.
 
     tcsh has no `complete -C` equivalent, so drive an interactive one through a pty.
     """
@@ -290,18 +290,22 @@ def tcsh_candidates(completion, cmdline, cwd):
         pytest.skip("tcsh not available")
     script = cwd / "completion.tcsh"
     script.write_text(completion)
+    prompt = "|candidates|"
+    # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
+    set_prompt = f'set prompt="{prompt[:6]}""{prompt[6:]}"'
 
     pid, fd = pty.fork()
     if pid == 0:   # child
         os.chdir(cwd)
         os.environ['TERM'] = 'xterm'
         os.execvp('tcsh', ['tcsh', '-f', '-i'])
+    output = ""
 
-    def read(timeout=5.0):
-        """Read until nothing arrives for a while (or `timeout` elapses)."""
-        out = b""
+    def read(prompts, timeout=10.0):
+        """Read until the prompt has been seen `prompts` times (or `timeout` elapses)."""
+        nonlocal output
         deadline = time.time() + timeout
-        while time.time() < deadline:
+        while output.count(prompt) < prompts and time.time() < deadline:
             if select.select([fd], [], [], 0.1)[0]:
                 try:
                     chunk = os.read(fd, 1 << 16)
@@ -309,25 +313,32 @@ def tcsh_candidates(completion, cmdline, cwd):
                     break
                 if not chunk:
                     break
-                out += chunk
-                deadline = min(deadline, time.time() + 0.5)
-        return out.decode('utf-8', 'replace')
+                output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
+                                 chunk.decode('utf-8', 'replace'))
+        # a command just finished, give tcsh a moment to enable its line editor again
+        while select.select([fd], [], [], 0.2)[0]:
+            output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
+                             os.read(fd, 1 << 16).decode('utf-8', 'replace'))
+        return output
 
+    candidates = []
     try:
-        read()                                 # prompt
-        os.write(fd, f"set autolist\nsource {script}\n".encode())
-        read()
-        os.write(fd, cmdline.encode() + b"\t") # `autolist` lists the candidates
-        output = re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r]", "", read())
+        os.write(fd, f"set autolist\nsource {script}\n{set_prompt}\n".encode())
+        read(1)
+        for cmdline in cmdlines:
+            seen = len(output)
+            # `autolist` lists the candidates, ^U then discards the line, \n asks for a new prompt
+            os.write(fd, cmdline.encode() + b"\t\x15\n")
+            chunk = read(output.count(prompt) + 1)[seen:].replace(prompt, "\n")
+            # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
+            candidates.append([
+                word for line in chunk.splitlines() if line.strip() and cmdline.strip() not in line
+                for word in line.split()])
     finally:
         os.close(fd)
         os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
-
-    # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
-    return [
-        word for line in output.splitlines() if line.strip() and cmdline.strip() not in line
-        for word in line.split()]
+    return candidates
 
 
 @pytest.fixture
@@ -430,22 +441,26 @@ def test_fish_choice_flags():
 def get_tcsh_pattern_parser():
     """Two subcommands sharing positional slot 2, one of them `.complete`-ing a pattern."""
     parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--conf", help="config file")
     subparsers = parser.add_subparsers()
     build = subparsers.add_parser("build", help="build")
     build.add_argument("cfg", help="config").complete = shtab.glob("*.yml", "*.yaml")
+    build.add_argument("stage", choices=["dev", "prod"], help="stage")
     run = subparsers.add_parser("run", help="run")
     run.add_argument("mode", choices=["fast", "slow"], help="mode")
+    run.add_argument("target", choices=["all", "one"], help="target")
     return parser
 
 
-def test_tcsh_pattern_in_shared_slot():
-    """Patterns are anchored on the (sub)command: tqdm/shtab#236"""
+def test_tcsh_slot_after_subcommand():
+    """A slot directly following a (sub)command is keyed off that word: tqdm/shtab#236"""
     completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
-    # a pattern is not a command, so it can't go in the `p@2@`...`@` list
     assert "'n/build/f:{*.yml,*.yaml}/'" in completion
     assert "f:{*.yml,*.yaml}`" not in completion and ") f:" not in completion
-    # commands & choices still do
-    assert '("$cmd[2]" == "run") ' in completion
+    assert "'n/run/(fast slow)/'" in completion
+    # a slot further away from its (sub)command can only be keyed off its index
+    assert '("$cmd[2]" == "run") ) echo all one' in completion
+    assert '("$cmd[2]" == "build") ) echo dev prod' in completion
 
 
 def test_tcsh_pattern_completion(change_dir):
@@ -453,10 +468,12 @@ def test_tcsh_pattern_completion(change_dir):
     for name in ("app.yml", "conf.yaml", "notes.md"):
         (change_dir / name).touch()
     completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
-
-    assert tcsh_candidates(completion, "myprog build ", change_dir) == ["app.yml", "conf.yaml"]
-    assert tcsh_candidates(completion, "myprog run ", change_dir) == ["fast", "slow"]
-    assert tcsh_candidates(completion, "myprog ", change_dir) == ["build", "run"]
+    cmdlines = [
+        "myprog build ", "myprog run ", "myprog ", "myprog --conf c.yml build ",
+        "myprog --conf c.yml run "]
+    yml, fast_slow = ["app.yml", "conf.yaml"], ["fast", "slow"]
+    assert tcsh_candidates(completion, cmdlines,
+                           change_dir) == [yml, fast_slow, ["build", "run"], yml, fast_slow]
 
 
 @fix_shell
