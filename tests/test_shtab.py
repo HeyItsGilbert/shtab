@@ -18,6 +18,13 @@ from shtab.main import get_main_parser, main
 fix_shell = pytest.mark.parametrize("shell", shtab.SUPPORTED_SHELLS)
 
 
+def complete(parser, shell, **kwargs):
+    """convenience function to print for debugging in case of failure"""
+    completion = shtab.complete(parser, shell, **kwargs)
+    print(completion)
+    return completion
+
+
 class Bash:
     def __init__(self, init_script=""):
         self.init = init_script
@@ -74,15 +81,14 @@ def test_main(shell):
 
 @fix_shell
 def test_main_self_completion(shell, capsys):
-    try:
+    with pytest.raises(SystemExit) as exc:
         main(["--print-own-completion", shell])
-    except SystemExit:
-        pass
+    assert exc.type is SystemExit and exc.value.code == 0
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
-        "tcsh": "complete shtab", "fish": "complete -c shtab"}
+        'bash': "complete -o filenames -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'tcsh': "complete shtab", 'fish': "complete -c shtab"}
     assert expected[shell] in captured.out
 
 
@@ -90,15 +96,12 @@ def test_main_self_completion(shell, capsys):
 @fix_shell
 def test_main_output_path(shell, capsys, change_dir, output):
     assert not capsys.readouterr().out
-    try:
-        main(["-s", shell, "shtab.main.get_main_parser", "-o", output])
-    except SystemExit:
-        pass
+    main(["-s", shell, "shtab.main.get_main_parser", "-o", output])
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
-        "tcsh": "complete shtab", "fish": "complete -c shtab"}
+        'bash': "complete -o filenames -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'tcsh': "complete shtab", 'fish': "complete -c shtab"}
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
     else:
@@ -111,8 +114,10 @@ def test_prog_override(shell, capsys):
     main(["-s", shell, "--prog", "foo", "shtab.main.get_main_parser"])
     captured = capsys.readouterr()
     assert not captured.err
-    if shell == "bash":
+    if shell == 'bash':
         assert "complete -o filenames -F _shtab_shtab foo" in captured.out
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
@@ -122,18 +127,18 @@ def test_prog_scripts(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     script_py = [i.strip() for i in captured.out.splitlines() if "script.py" in i]
-    if shell == "bash":
+    if shell == 'bash':
         assert script_py == ["complete -o filenames -F _shtab_shtab script.py"]
-    elif shell == "zsh":
+    elif shell == 'zsh':
         assert script_py == [
             "#compdef script.py", "_describe 'script.py commands' _commands",
             'local context state line curcontext="$curcontext" '
             "one_or_more='(*)' remainder='(-)*:' default='*::: :->script.py'",
             "_shtab_shtab_options+=(': :_shtab_shtab_commands' '*::: :->script.py')", "script.py)",
             "compdef _shtab_shtab -N script.py"]
-    elif shell == "tcsh":
+    elif shell == 'tcsh':
         assert script_py == ["complete script.py \\"]
-    elif shell == "fish":
+    elif shell == 'fish':
         start = 'complete -c script.py -n _shtab_shtab_using'
         assert script_py == [
             'complete -c script.py -e', 'complete -c script.py -f',
@@ -157,21 +162,23 @@ def test_prog_scripts(shell, capsys):
 def test_prefix_override(shell, capsys):
     main(["-s", shell, "--prefix", "foo", "shtab.main.get_main_parser"])
     captured = capsys.readouterr()
-    print(captured.out)
     assert not captured.err
-    if shell == "bash":
+    if shell == 'bash':
         shell = Bash(captured.out)
         shell.compgen('-W "${_shtab_foo_option_strings[*]}"', "--h", "--help")
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
 def test_complete(shell):
     parser = get_main_parser()
-    completion = shtab.complete(parser, shell=shell)
-    print(completion)
-    if shell == "bash":
+    completion = complete(parser, shell)
+    if shell == 'bash':
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_shtab_option_strings[*]}"', "--h", "--help")
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
@@ -179,36 +186,38 @@ def test_positional_choices(shell):
     parser = ArgumentParser(prog="test")
     parser.add_argument("posA", choices=["one", "two"])
     parser.add_argument("posB", choices=["BAA"]).complete = shtab.cmd("echo BZZ")
-    completion = shtab.complete(parser, shell=shell)
-    print(completion)
+    completion = complete(parser, shell)
     assert "BAA" not in completion and "BZZ" in completion, ".complete should override choices"
-    if shell == "bash":
+    if shell == 'bash':
         shell = Bash(completion)
         shell.compgen('-W "$_shtab_test_pos_0_choices"', "o", "one")
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
 def test_custom_complete(shell):
     parser = ArgumentParser(prog="test")
-    complete = parser.add_argument("posA").complete = {
-        "bash": "_shtab_test_some_func", "fish": "(_shtab_test_some_func)"}
+    _complete = parser.add_argument("posA").complete = {
+        'bash': "_shtab_test_some_func", 'fish': "(_shtab_test_some_func)"}
     preamble = {
-        "bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
-        "fish": "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}
+        'bash': "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
+        'fish': "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}
     # with pytest.warns(DeprecationWarning):
-    completion_deprecated = shtab.complete(parser, shell=shell, preamble=preamble)
-    complete['preamble'] = preamble
-    completion = shtab.complete(parser, shell=shell)
+    completion_deprecated = complete(parser, shell, preamble=preamble)
+    _complete['preamble'] = preamble
+    completion = complete(parser, shell)
     assert completion == completion_deprecated
-    print(completion)
-    if shell == "bash":
+    if shell == 'bash':
         shell = Bash(completion)
         shell.test('"$($_shtab_test_pos_0_COMPGEN o)" = "one"')
-    elif shell == "fish":
+    elif shell == 'fish':
         assert fish_candidates(completion, "test o") == ["one"]
+    else:
+        pytest.skip("WiP")
 
 
-def zsh_spec_array(completion, name, tmp_path):
+def zsh_specs(completion, name, tmp_path):
     """`zsh -n` the completion, then return the values zsh assigns to array `name`."""
     if not shutil.which('zsh'):
         pytest.skip("zsh not available")
@@ -226,33 +235,43 @@ def zsh_spec_array(completion, name, tmp_path):
     "plain help", "don't do this", "e.g. '>size_added,path'", 'a "quoted" value',
     "cost: $5 (100%%) `tick`"])
 def test_zsh_help_quoting(help_text, tmp_path):
-    """Help must not gain stray quotes: https://github.com/tqdm/shtab/issues/224"""
+    """Help must not gain stray quotes (#224)"""
     parser = ArgumentParser(prog="test", add_help=False)
     parser.add_argument("--opt", help=help_text)
-    completion = shtab.complete(parser, shell="zsh")
+    completion = complete(parser, 'zsh')
     assert "'\"'\"'" not in completion, ("`shlex.quote`'s `'\"'\"'` idiom is invalid"
                                          " inside the double-quoted specs")
-    specs = zsh_spec_array(completion, "_shtab_test_options", tmp_path)
+    specs = zsh_specs(completion, "_shtab_test_options", tmp_path)
     assert len(specs) == 1, f"quoting split the spec into {len(specs)} words: {specs}"
     # `_arguments` strips the backslashes; what must not appear is *extra* quotes
     assert specs[0].count("'") == help_text.count("'")
     assert specs[0].count('"') == help_text.count('"')
 
 
-def test_zsh_non_sequence_choices():
-    parser = ArgumentParser(prog="test")
+@fix_shell
+def test_non_sequence_choices(shell, tmp_path):
+    parser = ArgumentParser(prog="myprog", add_help=False)
     parser.add_argument("--mapping", choices={"one": 1, "two": 2})
     parser.add_argument("posA", choices={"three"})
-    completion = shtab.complete(parser, shell="zsh")
-    assert ':mapping:(one two)"' in completion
-    assert '":posA:(three)"' in completion
+    completion = complete(parser, shell)
+    if shell == 'bash':
+        shell = Bash(completion)
+        shell.compgen('-W "${_shtab_myprog_pos_0_choices[*]}"', "t", "three")
+    elif shell == 'zsh':
+        specs = zsh_specs(completion, "_shtab_myprog_options", tmp_path)
+        assert specs == ["--mapping[]:mapping:(one two)", ":posA:(three)"]
+    elif shell == 'fish':
+        assert fish_candidates(completion, "myprog t") == ["three"]
+        assert fish_candidates(completion, "myprog --mapping t") == ["two"]
+    else:
+        pytest.skip("WiP")
 
 
 def test_zsh_remainder_custom_complete_has_optional_message_colon():
     parser = ArgumentParser(prog="test")
-    parser.add_argument("command", nargs=1).complete = {"zsh": "{_command_names -e}"}
-    parser.add_argument("args", nargs="...").complete = {"zsh": "_normal"}
-    completion = shtab.complete(parser, shell="zsh")
+    parser.add_argument("command", nargs=1).complete = {'zsh': "{_command_names -e}"}
+    parser.add_argument("args", nargs="...").complete = {'zsh': "_normal"}
+    completion = complete(parser, 'zsh')
     assert '"(-)*::args:_normal"' in completion
     assert '"(-)*:args:_normal"' not in completion
 
@@ -265,7 +284,7 @@ def test_zsh_custom_action_nargs_zero_takes_no_argument():
     parser = ArgumentParser(prog="test", add_help=False)
     parser.add_argument("--help", "-h", action=CustomFlagAction, help="Helpy", nargs=0,
                         default=SUPPRESS)
-    completion = shtab.complete(parser, shell="zsh")
+    completion = complete(parser, 'zsh')
     assert '{--help,-h}"[Helpy]"' in completion
     assert '{--help,-h}"[Helpy]:help:"' not in completion
 
@@ -298,6 +317,7 @@ def tcsh_candidates(completion, cmdlines, cwd):
     if pid == 0:   # child
         os.chdir(cwd)
         os.environ['TERM'] = 'xterm'
+        os.environ['COLUMNS'] = '999'
         os.execvp('tcsh', ['tcsh', '-f', '-i'])
     output = ""
 
@@ -358,39 +378,47 @@ def test_parser():
     return parser
 
 
-def test_fish_file_completion(change_dir, test_parser):
-    """`shtab.FILE` completes files: https://github.com/tqdm/shtab/issues/227"""
+@fix_shell
+def test_file_completion(shell, change_dir, test_parser):
     (change_dir / "test_file.txt").touch()
-    completion = shtab.complete(test_parser, shell="fish")
-    # positional marked `shtab.FILE` (`paths`, after the `name` slot)
-    assert "test_file.txt" in fish_candidates(completion, "myprog create alpha test_")
-    # value of an option marked `shtab.FILE` completes files, not the positional's choices
-    candidates = fish_candidates(completion, "myprog create --exclude-from ")
-    assert "test_file.txt" in candidates
-    assert "alpha" not in candidates
-    # arguments not marked `shtab.FILE` don't complete files (as in the other shells)
-    assert fish_candidates(completion, "myprog delete test_") == []
-    assert fish_candidates(completion, "myprog --repo test_") == []
-
-    # not in cwd (#245)
-    (change_dir / "subdir").mkdir()
-    (change_dir / "subdir" / "nested.txt").touch()
-    assert "subdir/nested.txt" in fish_candidates(completion, "myprog create alpha subdir/nes")
-    absolute = str(change_dir / "subdir" / "nes")
-    candidates = fish_candidates(completion, f"myprog create --exclude-from {absolute}")
-    assert any(i.endswith("nested.txt") for i in candidates), candidates
+    completion = complete(test_parser, shell)
+    if shell == 'bash':
+        shell = Bash(completion)
+        shell.test('"$($_shtab_myprog_create_pos_1_COMPGEN test_)" = test_file.txt')
+    elif shell == 'zsh':
+        specs = zsh_specs(completion, "_shtab_myprog_create_options", change_dir)
+        assert "(*)::paths to add:_files" in specs
+    elif shell == 'tcsh':
+        command_lines = ["myprog create --exclude-from ", "myprog --repo test_"]
+        candidates = tcsh_candidates(completion, command_lines, change_dir)
+        assert candidates == [["completion.tcsh", "test_file.txt"], []]
+    elif shell == 'fish':
+        assert fish_candidates(completion, "myprog create alpha test_") == ["test_file.txt"]
+        assert fish_candidates(completion, "myprog create --exclude-from ") == ["test_file.txt"]
+        assert not fish_candidates(completion, "myprog delete test_")
+        assert not fish_candidates(completion, "myprog --repo test_")
+        (change_dir / "subdir").mkdir()
+        (change_dir / "subdir" / "nested.txt").touch()
+        assert fish_candidates(completion,
+                               "myprog create alpha subdir/nes") == ["subdir/nested.txt"]
+        absolute = change_dir / "subdir" / "nes"
+        candidates = fish_candidates(completion, f"myprog create --exclude-from {absolute}")
+        assert candidates[0].endswith("subdir/nested.txt")
+        assert len(candidates) == 1
+    else:
+        raise NotImplementedError(completion)
 
 
 def test_fish_global_option_value(test_parser):
-    """Subcommands complete after `--global-opt value`: https://github.com/tqdm/shtab/issues/228"""
-    completion = shtab.complete(test_parser, shell="fish")
+    """Subcommands complete after `--global-opt value` (#228)"""
+    completion = complete(test_parser, 'fish')
     candidates = fish_candidates(completion, "myprog --repo x ")
     assert {"create", "delete", "list"} <= set(candidates)
 
 
 def test_fish_value_equal_to_command_name(test_parser):
-    """Values matching command names must not confuse: https://github.com/tqdm/shtab/issues/229"""
-    completion = shtab.complete(test_parser, shell="fish")
+    """Values matching command names must not confuse (#229)"""
+    completion = complete(test_parser, 'fish')
     # `list` is the value of `delete`'s `name` positional, not the `list` subcommand
     candidates = fish_candidates(completion, "myprog delete list --")
     assert "--force" in candidates
@@ -398,47 +426,50 @@ def test_fish_value_equal_to_command_name(test_parser):
 
 
 def test_fish_positional_order(test_parser):
-    """Positionals are completed at the right slot: https://github.com/tqdm/shtab/issues/230"""
-    completion = shtab.complete(test_parser, shell="fish")
+    """Positionals are completed at the right slot (#230)"""
+    completion = complete(test_parser, 'fish')
     # first slot offers the `name` choices
     assert {"alpha", "beta"} <= set(fish_candidates(completion, "myprog create "))
     # later slots (the `paths` positional) must not re-offer them
     assert "alpha" not in fish_candidates(completion, "myprog create alpha alp")
 
 
-def test_fish_help_expansion():
-    """%(default)s etc. are expanded in descriptions: https://github.com/tqdm/shtab/issues/231"""
+@fix_shell
+def test_placeholder_help_expansion(shell):
+    if shell in ('bash', 'tcsh'):
+        pytest.skip("WiP")
     parser = ArgumentParser(prog="test")
-    parser.add_argument("--retries", type=int, default=3, help="retries (default: %(default)s)")
-    parser.add_argument("posA", choices=["one", "two"], help="%(prog)s thing")
-    completion = shtab.complete(parser, shell="fish")
-    assert "-d 'retries (default: 3)'" in completion
-    assert "-d 'test thing'" in completion
+    parser.add_argument("--retries", type=int, default=3, help="retries (default %(default)s)")
+    parser.add_argument("posA", choices=["one", "two"], help="also %(prog)s thing")
+    completion = complete(parser, shell)
+    assert "retries (default 3)" in completion
+    assert "also test thing" in completion
 
 
 def test_fish_subcommand_description():
-    """add_parser(help=...) is used when there is no description: tqdm/shtab#231"""
+    """add_parser(help=...) is used when there is no description (#231)"""
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     subparsers.add_parser("subA", help="help message")
     subparsers.add_parser("subB", description="description wins\nsecond line", help="unused")
-    completion = shtab.complete(parser, shell="fish")
+    completion = complete(parser, 'fish')
     assert "-a subA -d 'help message'" in completion
     assert "-a subB -d 'description wins'" in completion
 
 
 def test_fish_choice_flags():
     parser = ArgumentParser(prog="test")
-    parser.add_argument("--cust", help="custom").complete = {"bash": "_some_func"}
+    parser.add_argument("--cust", help="custom").complete = {'bash': "_some_func"}
     parser.add_argument("--fmt", choices=["json", "csv"], help="format")
     parser.add_argument("posB", choices=["one", "two"], help="a word")
-    completion = shtab.complete(parser, shell="fish")
+    completion = complete(parser, 'fish')
     assert "-l cust -x -d custom" in completion
     assert '-l fmt -xka "json csv" -d format' in completion
     assert '-ka "one two" -d \'a word\'' in completion
 
 
-def get_tcsh_pattern_parser():
+@pytest.fixture
+def tcsh_pattern_parser():
     """Two subcommands sharing positional slot 2, one of them `.complete`-ing a pattern."""
     parser = ArgumentParser(prog="myprog")
     parser.add_argument("--conf", help="config file")
@@ -452,9 +483,9 @@ def get_tcsh_pattern_parser():
     return parser
 
 
-def test_tcsh_slot_after_subcommand():
-    """A slot directly following a (sub)command is keyed off that word: tqdm/shtab#236"""
-    completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
+def test_tcsh_slot_after_subcommand(tcsh_pattern_parser):
+    """A slot directly following a (sub)command is keyed off that word (#236)"""
+    completion = complete(tcsh_pattern_parser, 'tcsh')
     assert "'n/build/f:{*.yml,*.yaml}/'" in completion
     assert "f:{*.yml,*.yaml}`" not in completion and ") f:" not in completion
     assert "'n/run/(fast slow)/'" in completion
@@ -463,11 +494,11 @@ def test_tcsh_slot_after_subcommand():
     assert '("$cmd[2]" == "build") ) echo dev prod' in completion
 
 
-def test_tcsh_pattern_completion(change_dir):
-    """The generated pattern rule works in tcsh itself: tqdm/shtab#236"""
+def test_tcsh_pattern_completion(tcsh_pattern_parser, change_dir):
+    """The generated pattern rule works in tcsh itself (#236)"""
     for name in ("app.yml", "conf.yaml", "notes.md"):
         (change_dir / name).touch()
-    completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
+    completion = complete(tcsh_pattern_parser, 'tcsh')
     cmdlines = [
         "myprog build ", "myprog run ", "myprog ", "myprog --conf c.yml build ",
         "myprog --conf c.yml run "]
@@ -482,19 +513,20 @@ def test_subparser_custom_complete(shell):
     subparsers = parser.add_subparsers()
     sub = subparsers.add_parser("sub", help="help message")
     sub.add_argument("posA").complete = {
-        "bash": "_shtab_test_some_func", "fish": "(_shtab_test_some_func)", 'preamble': {
-            "bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
-            "fish": "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}}
-    completion = shtab.complete(parser, shell=shell)
-    print(completion)
-    if shell == "bash":
+        'bash': "_shtab_test_some_func", 'fish': "(_shtab_test_some_func)", 'preamble': {
+            'bash': "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
+            'fish': "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}}
+    completion = complete(parser, shell)
+    if shell == 'bash':
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub")
         shell.compgen('-W "$_shtab_test_pos_0_choices"', "s", "sub")
         shell.test('"$($_shtab_test_sub_pos_0_COMPGEN o)" = "one"')
         shell.test('-z "${_shtab_test_COMPGEN-}"')
-    elif shell == "fish":
+    elif shell == 'fish':
         assert fish_candidates(completion, "test sub o") == ["one"]
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
@@ -503,12 +535,10 @@ def test_subparser_aliases(shell):
     subparsers = parser.add_subparsers()
     sub = subparsers.add_parser("sub", aliases=["xsub", "ysub"], help="help message")
     sub.add_argument("posA").complete = {
-        "bash": "_shtab_test_some_func",
-        'preamble': {"bash": "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}"}}
-    completion = shtab.complete(parser, shell=shell)
-    print(completion)
-
-    if shell == "bash":
+        'bash': "_shtab_test_some_func",
+        'preamble': {'bash': "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}"}}
+    completion = complete(parser, shell)
+    if shell == 'bash':
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub")
         shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "s", "sub")
@@ -518,6 +548,8 @@ def test_subparser_aliases(shell):
         shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "y", "ysub")
         shell.test('"$($_shtab_test_sub_pos_0_COMPGEN o)" = "one"')
         shell.test('-z "${_shtab_test_COMPGEN-}"')
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
@@ -525,13 +557,14 @@ def test_subparser_colons(shell):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     subparsers.add_parser("sub:cmd", help="help message")
-    completion = shtab.complete(parser, shell=shell)
-    print(completion)
-    if shell == "bash":
+    completion = complete(parser, shell)
+    if shell == 'bash':
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub:cmd")
         shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "s", "sub:cmd")
         shell.test('-z "${_shtab_test_COMPGEN-}"')
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
@@ -539,27 +572,29 @@ def test_subparser_slashes(shell):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     subparsers.add_parser("sub/cmd", help="help message")
-    completion = shtab.complete(parser, shell=shell)
-    print(completion)
-    if shell == "bash":
+    completion = complete(parser, shell)
+    if shell == 'bash':
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub/cmd")
         shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "s", "sub/cmd")
         shell.test('-z "${_shtab_test_COMPGEN-}"')
-    elif shell == "zsh":
+    elif shell == 'zsh':
         assert "_shtab_test_sub/cmd" not in completion
         assert "_shtab_test_sub_cmd" in completion
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
 def test_add_argument_to_optional(shell):
     parser = ArgumentParser(prog="test")
     shtab.add_argument_to(parser, ["-s", "--shell"])
-    completion = shtab.complete(parser, shell=shell)
-    print(completion)
-    if shell == "bash":
+    completion = complete(parser, shell)
+    if shell == 'bash':
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_test_option_strings[*]}"', "--s", "--shell")
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
@@ -569,21 +604,22 @@ def test_add_argument_to_positional(shell, capsys):
     sub = subparsers.add_parser("completion", help="help message")
     shtab.add_argument_to(sub, "shell", parent=parser)
     from argparse import Namespace
-    completion_manual = shtab.complete(parser, shell=shell)
+    completion_manual = complete(parser, shell)
+    assert completion_manual.rstrip() == capsys.readouterr().out.rstrip()
     with pytest.raises(SystemExit) as exc:
         sub._actions[-1](sub, Namespace(), shell)
-        assert exc.type is SystemExit
-        assert exc.value.code == 0
+    assert exc.type is SystemExit and exc.value.code == 0
     completion, err = capsys.readouterr()
-    print(completion)
     assert completion_manual.rstrip() == completion.rstrip()
     assert not err
-    if shell == "bash":
+    if shell == 'bash':
         shell = Bash(completion)
         shell.compgen('-W "${_shtab_test_subparsers[*]}"', "c", "completion")
         shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "c", "completion")
         shell.compgen('-W "${_shtab_test_completion_pos_0_choices[*]}"', "ba", "bash")
         shell.compgen('-W "${_shtab_test_completion_pos_0_choices[*]}"', "z", "zsh")
+    else:
+        pytest.skip("WiP")
 
 
 @fix_shell
@@ -611,8 +647,7 @@ def change_dir(tmp_path):
 def test_path_completion_after_redirection(change_dir):
     parser = ArgumentParser(prog="test")
     shtab.add_argument_to(parser, ["-s", "--shell"])
-    completion = shtab.complete(parser, shell="bash")
-    print(completion)
+    completion = complete(parser, 'bash')
     (change_dir / "test_file.txt").touch()
     for redirection in [">", ">>", "1>", "1>>", "2>", "2>>"]:
         shell = Bash(completion +
