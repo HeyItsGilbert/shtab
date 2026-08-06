@@ -280,16 +280,21 @@ def fish_candidates(completion, cmdline):
     return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
 
 
-def tcsh_candidates(completion, cmdline, cwd):
+def tcsh_candidates(completion, cmdlines, cwd):
     """
-    Return the completion candidates tcsh offers for `cmdline`.
+    Return the completion candidates tcsh offers for each of `cmdlines`.
 
-    tcsh has no `complete -C` equivalent, so drive an interactive one through a pty.
+    tcsh has no `complete -C` equivalent, so drive an interactive one through a pty. All the
+    command lines are completed in the same tcsh, which is told to use a distinctive prompt so
+    each one's candidates can be told apart.
     """
     if not shutil.which('tcsh'):
         pytest.skip("tcsh not available")
     script = cwd / "completion.tcsh"
     script.write_text(completion)
+    prompt = "|candidates|"
+    # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
+    set_prompt = f'set prompt="{prompt[:6]}""{prompt[6:]}"'
 
     pid, fd = pty.fork()
     if pid == 0:   # child
@@ -297,11 +302,13 @@ def tcsh_candidates(completion, cmdline, cwd):
         os.environ['TERM'] = 'xterm'
         os.execvp('tcsh', ['tcsh', '-f', '-i'])
 
-    def read(timeout=5.0):
-        """Read until nothing arrives for a while (or `timeout` elapses)."""
-        out = b""
+    output = ""
+
+    def read(prompts, timeout=10.0):
+        """Read until the prompt has been seen `prompts` times (or `timeout` elapses)."""
+        nonlocal output
         deadline = time.time() + timeout
-        while time.time() < deadline:
+        while output.count(prompt) < prompts and time.time() < deadline:
             if select.select([fd], [], [], 0.1)[0]:
                 try:
                     chunk = os.read(fd, 1 << 16)
@@ -309,25 +316,32 @@ def tcsh_candidates(completion, cmdline, cwd):
                     break
                 if not chunk:
                     break
-                out += chunk
-                deadline = min(deadline, time.time() + 0.5)
-        return out.decode('utf-8', 'replace')
+                output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
+                                 chunk.decode('utf-8', 'replace'))
+        # a command just finished, give tcsh a moment to enable its line editor again
+        while select.select([fd], [], [], 0.2)[0]:
+            output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
+                             os.read(fd, 1 << 16).decode('utf-8', 'replace'))
+        return output
 
+    candidates = []
     try:
-        read()                                 # prompt
-        os.write(fd, f"set autolist\nsource {script}\n".encode())
-        read()
-        os.write(fd, cmdline.encode() + b"\t") # `autolist` lists the candidates
-        output = re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r]", "", read())
+        os.write(fd, f"set autolist\nsource {script}\n{set_prompt}\n".encode())
+        read(1)
+        for cmdline in cmdlines:
+            seen = len(output)
+            # `autolist` lists the candidates, ^U then discards the line, \n asks for a new prompt
+            os.write(fd, cmdline.encode() + b"\t\x15\n")
+            chunk = read(output.count(prompt) + 1)[seen:].replace(prompt, "\n")
+            # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
+            candidates.append([
+                word for line in chunk.splitlines() if line.strip() and cmdline.strip() not in line
+                for word in line.split()])
     finally:
         os.close(fd)
         os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
-
-    # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
-    return [
-        word for line in output.splitlines() if line.strip() and cmdline.strip() not in line
-        for word in line.split()]
+    return candidates
 
 
 @pytest.fixture
@@ -458,13 +472,13 @@ def test_tcsh_pattern_completion(change_dir):
         (change_dir / name).touch()
     completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
 
-    assert tcsh_candidates(completion, "myprog build ", change_dir) == ["app.yml", "conf.yaml"]
-    assert tcsh_candidates(completion, "myprog run ", change_dir) == ["fast", "slow"]
-    assert tcsh_candidates(completion, "myprog ", change_dir) == ["build", "run"]
-    # completing these does not depend on the slot's index, so options may precede it
-    yml = ["app.yml", "conf.yaml"]
-    assert tcsh_candidates(completion, "myprog --conf c.yml build ", change_dir) == yml
-    assert tcsh_candidates(completion, "myprog --conf c.yml run ", change_dir) == ["fast", "slow"]
+    # completing the last two does not depend on the slot's index, so options may precede it
+    cmdlines = [
+        "myprog build ", "myprog run ", "myprog ", "myprog --conf c.yml build ",
+        "myprog --conf c.yml run "]
+    yml, fast_slow = ["app.yml", "conf.yaml"], ["fast", "slow"]
+    assert tcsh_candidates(completion, cmdlines,
+                           change_dir) == [yml, fast_slow, ["build", "run"], yml, fast_slow]
 
 
 @fix_shell
