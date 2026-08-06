@@ -18,22 +18,19 @@ shtab
 Features
 --------
 
-- Outputs tab completion scripts for
+- Outputs tab completion scripts for multiple shells
 
-  - ``bash``
-  - ``zsh``
-  - ``tcsh``
-  - ``fish``
+  - ``bash``, ``zsh``, ``fish``, ``tcsh``
 
 - Supports
 
   - `argparse <https://docs.python.org/library/argparse>`_
   - `docopt <https://pypi.org/project/docopt>`_ (via `argopt <https://pypi.org/project/argopt>`_)
 
-- Supports arguments, options and subparsers
-- Supports choices (e.g. ``--say={hello,goodbye}``)
-- Supports file and directory path completion
-- Supports custom path completion (e.g. ``--file={*.txt}``)
+- ``<arguments>``, ``--options`` and ``sub commands``
+- Choices (``--say={hello,goodbye}```)
+- Paths (``--file={*.y*ml,*.toml}``, ``--dir=*/``)
+- Dynamic shell commands (``--branch=$(git branch)``)
 
 ------------------------------------------
 

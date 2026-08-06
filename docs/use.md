@@ -16,43 +16,38 @@ The only requirement is that external CLI applications provide an importable
 `argparse.ArgumentParser` object (or alternatively an importable function which
 returns a parser object). This may require a trivial code change.
 
-Once that's done, simply put the output of `shtab --shell=your_shell
-your_cli_app.your_parser_object` somewhere your shell looks for completions.
+Then simply put the output of `shtab --shell=your_shell your_cli_app.your_parser_object` [somewhere](index.md#scripts) your shell looks for completions.
 
 Below are various examples of enabling `shtab`'s own tab completion scripts.
 
 !!! info
-    If both shtab and the module it's completing are globally importable, eager
+    If both `shtab` and the module it's completing are globally importable, eager
     usage is an option. "Eager" means automatically updating completions each
-    time a terminal is opened, and likely should not use the `-u, --error-unimportable` flag.
+    time a terminal is opened, and likely should *not* use the `-u, --error-unimportable` flag.
+
+    Terminal start might be slow if scripts are very complex.
 
 === "bash"
 
-    See <https://github.com/scop/bash-completion/blob/main/doc/configuration.md>, e.g.:
-
     ```sh
     shtab -u --shell=bash shtab.main.get_main_parser \
-      | sudo tee "$BASH_COMPLETION_COMPAT_DIR"/shtab
+      | sudo tee /etc/bash_completion.d/shtab
     ```
 
-    Eager:
+    *Eager*
 
     ```sh
     # Install locally
     echo 'eval "$(shtab --shell=bash shtab.main.get_main_parser)"' \
       >> ~/.bash_completion
 
-    # Install locally (lazy load for bash-completion>=2.8)
+    # Install system-wide (pkg-config bash-completion --variable=compatdir)
     echo 'eval "$(shtab --shell=bash shtab.main.get_main_parser)"' \
-      > "${BASH_COMPLETION_USER_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion}/completions/shtab"
+      | sudo tee /etc/bash_completion.d/shtab
 
-    # Install system-wide
+    # Install system-wide (pkg-config bash-completion --variable=completionsdir)
     echo 'eval "$(shtab --shell=bash shtab.main.get_main_parser)"' \
-      | sudo tee "$(pkg-config --variable=completionsdir bash-completion)"/shtab
-
-    # Install system-wide (legacy)
-    echo 'eval "$(shtab --shell=bash shtab.main.get_main_parser)"' \
-      | sudo tee "$BASH_COMPLETION_COMPAT_DIR"/shtab
+      | sudo tee /usr/share/bash-completion/completions/shtab
     ```
 
 === "zsh"
@@ -66,10 +61,10 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
       | sudo tee /usr/local/share/zsh/site-functions/_shtab
     ```
 
-    Eager:
+    *Eager*
 
     Place the generated script somewhere in `$fpath`.
-    For example, add these lines to the top of `~/.zshrc`:
+    For example, add these lines *to the top* of `~/.zshrc`:
 
     ```sh
     mkdir -p ~/.zsh/completions
@@ -81,10 +76,10 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 
     ```sh
     shtab -u --shell=tcsh shtab.main.get_main_parser \
-      | sudo tee /etc/profile.d/shtab.completion.csh
+      | sudo tee /etc/profile.d/completion_shtab.csh
     ```
 
-    Eager:
+    *Eager*
 
     ```sh
     # Install locally
@@ -93,26 +88,20 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 
     # Install system-wide
     echo 'shtab --shell=tcsh shtab.main.get_main_parser | source /dev/stdin' \
-      | sudo tee /etc/profile.d/eager-completion.csh
+      | sudo tee /etc/profile.d/completion_shtab.csh
     ```
 
 === "fish"
-
-    See <https://fishshell.com/docs/current/completions.html#where-to-put-completions>, e.g.:
 
     ```sh
     # Install locally
     shtab -u --shell=fish shtab.main.get_main_parser \
       -o ~/.config/fish/completions/shtab.fish
 
-    # Install system-wide
+    # Install system-wide (pkg-config fish --variable=completionsdir)
     shtab -u --shell=fish shtab.main.get_main_parser \
       | sudo tee /usr/share/fish/vendor_completions.d/shtab.fish
     ```
-
-!!! tip
-    See the [examples/](https://github.com/tqdm/shtab/tree/main/examples)
-    folder for more.
 
 Any existing `argparse`-based scripts should be supported with minimal effort.
 For example, starting with this existing code:
@@ -140,7 +129,7 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
 
     ```sh
     shtab --shell=bash -u MY_PROG.command.main.get_main_parser \
-      | sudo tee "$BASH_COMPLETION_COMPAT_DIR"/MY_PROG
+      | sudo tee /etc/bash_completion.d/MY_PROG
     ```
 
 === "zsh"
@@ -167,11 +156,13 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
 ## Library Usage
 
 !!! tip
-    See the [examples/](https://github.com/tqdm/shtab/tree/main/examples)
-    folder for more.
+    For more, see:
+
+    - `shtab`'s own [examples/](https://github.com/tqdm/shtab/tree/main/examples) folder
+    - [git-fame#135](https://github.com/casperdcl/git-fame/commit/d2577f821368fd2337e975dc6a31ce73ab09e7ed) for how to migrate to using `shtab` in a real project
 
 Complex projects with subparsers and custom completions for paths matching
-certain patterns (e.g. `--file=*.txt`) are fully supported (see
+certain patterns (e.g. `--file=*.txt` or `--branch=$(git branch)`) are fully supported (see
 [examples/customcomplete.py](https://github.com/tqdm/shtab/tree/main/examples/customcomplete.py)
 or even
 [treeverse/dvc:commands/completion.py](https://github.com/treeverse/dvc/blob/main/dvc/commands/completion.py)

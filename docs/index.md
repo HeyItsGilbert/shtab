@@ -16,22 +16,35 @@
 
 ## Features
 
-- Outputs tab completion scripts for
-    - `bash`
-    - `zsh`
-    - `tcsh`
-    - `fish`
+- Outputs tab completion scripts for multiple shells
+    - `bash`, `zsh`, `fish`, `tcsh`
 - Supports
     - [`argparse`](https://docs.python.org/library/argparse)
     - [`docopt`](https://pypi.org/project/docopt) (via [`argopt`](https://pypi.org/project/argopt))
-- Supports arguments, options and subparsers
-- Supports choices (e.g. `--say={hello,goodbye}`)
-- Supports file and directory path completion
-- Supports custom path completion (e.g. `--file={*.txt}`)
+- `<arguments>`, `--options` and `sub commands`
+- Choices (`--say={hello,goodbye}`)
+- Paths (`--file={*.y*ml,*.toml}`, `--dir=*/`)
+- Dynamic shell commands (`--branch=$(git branch)`)
 
 ------------------------------------------------------------------------
 
 ## Installation
+
+### scripts
+
+!!! tip
+    TL;DR where to save a completion script for a program called `NAME`
+
+shell | location
+--|--
+[`bash`](https://github.com/scop/bash-completion/blob/main/doc/configuration.md) | `/etc/bash_completion.d/NAME`
+[`zsh`](https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org) | `/usr/local/share/zsh/site-functions/NAME`
+[`tcsh`](https://github.com/tcsh-org/tcsh/blob/master/complete.tcsh) | `/etc/profile.d/completion_NAME.csh`, source in `~/.cshrc` or `~/.tcshrc`
+[`fish`](https://fishshell.com/docs/current/completions.html#where-to-put-completions) | `~/.config/fish/completions/NAME.fish`
+
+For more information, click on the shells above, and/or see [CLI Usage](use.md#cli-usage).
+
+### `shtab`
 
 === "pip"
 
@@ -88,15 +101,6 @@ Not working?
 - Path completion is disabled by default, and must be enabled explicitly (`parser.add_argument('positional').complete = shtab.FILE`).
 - [Ask a general question on StackOverflow](https://stackoverflow.com/questions/tagged/shtab).
 - [Report bugs and open feature requests on GitHub][issues].
-
-"Eager" installation (completions are re-generated upon login/terminal start) is
-recommended. Naturally, `shtab` and the CLI application to complete should be
-accessible/importable from the login environment. If installing `shtab` in a
-different virtual environment, you'd have to add a line somewhere appropriate
-(e.g. `$CONDA_PREFIX/etc/conda/activate.d/env_vars.sh`).
-
-By default, `shtab` will silently do nothing if it cannot import the requested
-application. Use `-u, --error-unimportable` to noisily complain.
 
 ## Alternatives
 
