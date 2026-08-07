@@ -38,7 +38,7 @@
 shell | location
 --|--
 [`bash`](https://github.com/scop/bash-completion/blob/main/doc/configuration.md) | `/etc/bash_completion.d/NAME`
-[`zsh`](https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org) | `/usr/local/share/zsh/site-functions/NAME`
+[`zsh`](https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org) | `/usr/local/share/zsh/site-functions/_NAME`
 [`tcsh`](https://github.com/tcsh-org/tcsh/blob/master/complete.tcsh) | `/etc/profile.d/completion_NAME.csh`, source in `~/.cshrc` or `~/.tcshrc`
 [`fish`](https://fishshell.com/docs/current/completions.html#where-to-put-completions) | `~/.config/fish/completions/NAME.fish`
 
