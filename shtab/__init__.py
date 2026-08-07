@@ -273,7 +273,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                  for opt in parser._get_optional_actions() if opt.help != SUPPRESS), []))
         option_strings.append(f"{prefix}_option_strings=({option_strings_list})")
         for optional in parser._get_optional_actions():
-            if optional == SUPPRESS:
+            if optional.help == SUPPRESS:
                 continue
             for option_string in optional.option_strings:
                 if hasattr(optional, 'complete'):
@@ -462,8 +462,7 @@ ${root_prefix}() {
     # optional argument started: use option strings
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_option_strings[*]}" -- "${completing_word}")
-  elif [[ "${previous_word}" == ">" || "${previous_word}" == ">>" ||
-          "${previous_word}" =~ ^[12]">" || "${previous_word}" =~ ^[12]">>" ]]; then
+  elif [[ "${previous_word}" =~ ^[0-9\\&]*[\\<\\>]\\>?$ ]]; then
     # handle redirection operators
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
   else
