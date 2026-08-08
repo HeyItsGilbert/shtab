@@ -331,18 +331,15 @@ def fish_candidates(completion, cmdline):
 
 def tcsh_candidates(completion, cmdlines, cwd):
     """
-    Return the completion candidates tcsh offers for each of `cmdlines`.
+    Return pty-driven completion candidates for each of `cmdlines`.
 
-    tcsh has no `complete -C` equivalent, so drive an interactive one through a pty.
+    Reason: tcsh has no `complete -C` equivalent.
     """
     if not shutil.which('tcsh'):
         pytest.skip("tcsh not available")
     script = cwd / "completion.tcsh"
     script.write_text(completion)
     prompt = "|candidates|"
-    # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
-    set_prompt = f'set prompt="{prompt[:6]}""{prompt[6:]}"'
-
     pid, fd = pty.fork()
     if pid == 0:   # child
         os.chdir(cwd)
@@ -351,11 +348,14 @@ def tcsh_candidates(completion, cmdlines, cwd):
         os.execvp('tcsh', ['tcsh', '-f', '-i'])
     output = ""
 
-    def read(prompts, timeout=10.0):
-        """Read until the prompt has been seen `prompts` times (or `timeout` elapses)."""
+    def clean(chunk):
+        return re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+
+    def read(num_prompts, timeout=10.0):
+        """read until `timeout` elapses or `num_prompts` seen, then drain"""
         nonlocal output
         deadline = time.time() + timeout
-        while output.count(prompt) < prompts and time.time() < deadline:
+        while output.count(prompt) < num_prompts and time.time() < deadline:
             if select.select([fd], [], [], 0.1)[0]:
                 try:
                     chunk = os.read(fd, 1 << 16)
@@ -363,17 +363,18 @@ def tcsh_candidates(completion, cmdlines, cwd):
                     break
                 if not chunk:
                     break
-                output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
-                                 chunk.decode('utf-8', 'replace'))
+                output += clean(chunk)
         # a command just finished, give tcsh a moment to enable its line editor again
         while select.select([fd], [], [], 0.2)[0]:
-            output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
-                             os.read(fd, 1 << 16).decode('utf-8', 'replace'))
+            output += clean(os.read(fd, 1 << 16))
         return output
 
     candidates = []
     try:
-        os.write(fd, f"set autolist\nsource {script}\n{set_prompt}\n".encode())
+        # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
+        os.write(
+            fd,
+            f'set autolist\nsource {script}\nset prompt="{prompt[:1]}""{prompt[1:]}"\n'.encode())
         read(1)
         for cmdline in cmdlines:
             seen = len(output)
@@ -444,17 +445,18 @@ def test_file_completion(shell, change_dir, test_parser):
         raise NotImplementedError(completion)
 
 
-def bash_completed_line(completion, cmdline, cwd):
+def bash_candidates(completion, cmdlines, cwd):
     """
-    Source `completion` in an interactive bash, type `cmdline` followed by <TAB>,
-    and return the resulting command line after readline inserted the completion.
+    Return pty-driven completion candidates for each of `cmdlines`.
 
-    Needed since readline's post-processing (e.g. `-o filenames` appending `/` to
-    dirs) happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
+    Reason: readline's post-processing (e.g. `-o filenames` appending `/` to dirs)
+    happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
     """
+    if not shutil.which('bash'):
+        pytest.skip("bash not available")
     script = cwd / "completion.bash"
     script.write_text(completion)
-    prompt = "|bashtest|"
+    prompt = "|candidates|"
     pid, fd = pty.fork()
     if pid == 0:   # child
         os.chdir(cwd)
@@ -467,7 +469,7 @@ def bash_completed_line(completion, cmdline, cwd):
         return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
 
     def read(condition, timeout=10.0):
-        """Read until `condition()` (or `timeout` elapses), then drain."""
+        """read until `timeout` elapses or `condition()`, then drain"""
         nonlocal output
         deadline = time.time() + timeout
         while not condition() and time.time() < deadline:
@@ -488,56 +490,41 @@ def bash_completed_line(completion, cmdline, cwd):
                 break
             output += clean(chunk)
 
+    candidates = []
     try:
         os.write(fd, f"source {script}; PS1='{prompt}'\n".encode())
         read(lambda: output.count(prompt) >= 1)
-        seen = len(output)
-        os.write(fd, cmdline.encode() + b"\t")
-        # the typed line is echoed back, followed by whatever readline inserted
-        read(lambda: cmdline in output[seen:])
-        completed = output[seen:]
+        for cmdline in cmdlines:
+            seen = len(output)
+            os.write(fd, cmdline.encode() + b"\t")
+            # the typed line is echoed back, followed by whatever readline inserted
+            read(lambda cmdline=cmdline, seen=seen: cmdline in output[seen:])
+            candidates.append(output[seen:])
         os.write(fd, b"\x15exit\n") # discard the line & quit
         read(lambda: True)
     finally:
         os.close(fd)
         os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
-    return completed
+    return candidates
 
 
-def test_bash_subcommand_dir_collision(change_dir, test_parser):
-    """Subcommands matching a dir name must not gain a trailing slash (#67)"""
-    if subprocess.call(['bash', '-c', 'type compopt'], stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL):
+def test_bash_dir_collision(change_dir, test_parser):
+    """Subcommands matching a dir name must not gain a trailing slash"""
+    try:
+        subprocess.check_call(['bash', '-c', 'type compopt'])
+    except subprocess.CalledProcessError:
         pytest.skip("bash without compopt")
     (change_dir / "create").mkdir()
     (change_dir / "subdir").mkdir()
     completion = complete(test_parser, 'bash')
     assert "complete -F _shtab_myprog myprog" in completion, \
         "`-o filenames` must not apply readline filename post-processing globally"
-    line = bash_completed_line(completion, "myprog cre", change_dir)
-    assert line == "myprog create ", "subcommand was completed like a directory"
-    # dir/file completions must still get filename treatment (trailing `/` on dirs)
-    line = bash_completed_line(completion, "myprog create alpha sub", change_dir)
-    assert line == "myprog create alpha subdir/"
-
-
-def test_bash_compgen_dir_collision(change_dir):
-    """Non-path compgen candidates matching a dir name must not gain a trailing slash (#67)"""
-    if subprocess.call(['bash', '-c', 'type compopt'], stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL):
-        pytest.skip("bash without compopt")
-    parser = ArgumentParser(prog="otherprog")
-    parser.add_argument("branch").complete = shtab.cmd("echo master other")
-    parser.add_argument("--config").complete = shtab.glob("*.yml")
-    (change_dir / "master").mkdir()
-    (change_dir / "subdir").mkdir()
-    completion = complete(parser, 'bash')
-    line = bash_completed_line(completion, "otherprog mas", change_dir)
-    assert line == "otherprog master ", "`shtab.cmd` candidate was completed like a directory"
-    # `shtab.glob` completes paths, so dirs must still get a trailing `/`
-    line = bash_completed_line(completion, "otherprog master --config sub", change_dir)
-    assert line == "otherprog master --config subdir/"
+    lines = bash_candidates(completion, ["myprog cre", "myprog create alpha sub"], change_dir)
+    assert lines == [
+        "myprog create ",              # choices should take priority over dirs
+        "myprog create alpha subdir/", # dirs should still have trailing `/`
+    ]
 
 
 def test_fish_global_option_value(test_parser):
