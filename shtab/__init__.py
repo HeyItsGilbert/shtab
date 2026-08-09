@@ -549,7 +549,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
                 format_optional(opt, parser)
                 for opt in parser._get_optional_actions() if opt.help != SUPPRESS] + [
                     format_positional(opt, parser) for opt in parser._get_positional_actions()
-                    if opt.help != SUPPRESS and opt.choices is None],
+                    if opt.help != SUPPRESS and not isinstance(opt.choices, dict)],
             "help": (parser.description
                      or "").strip().split("\n")[0], "commands": [], "paths": []}}
 
@@ -557,12 +557,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
         paths = paths or []
         subcmds = []
         for sub in parser._get_positional_actions():
-            if sub.help == SUPPRESS or not sub.choices:
-                continue
-            if not sub.choices or not isinstance(sub.choices, dict):
-                # positional argument
-                all_commands[prefix]["arguments"].append(format_positional(sub, parser))
-            else:  # subparser
+            if sub.help != SUPPRESS and isinstance(sub.choices, dict): # subparser
                 log.debug(f"choices:{prefix}:{sorted(sub.choices)}")
                 public_cmds = get_public_subcommands(sub)
                 for cmd, subparser in sub.choices.items():
