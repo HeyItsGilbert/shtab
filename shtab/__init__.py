@@ -468,9 +468,16 @@ ${root_prefix}() {
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
   else
     # use choices & compgen
+    local action_compgen_word="${completing_word}"
+    # When the next option is already typed while completing a previous
+    # option's path argument, feed an empty word to the path completer so it
+    # can list entries at the current directory instead of trying to match
+    # the option token itself.
+    [[ -n "${current_action_compgen}" &&
+       "${completing_word}" == -* ]] && action_compgen_word=""
     [ -n "${current_action_compgen}" ] &&
       while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
-        "${current_action_compgen}" "${completing_word}")
+        "${current_action_compgen}" "${action_compgen_word}")
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_action_choices[*]}" -- "${completing_word}")
   fi
