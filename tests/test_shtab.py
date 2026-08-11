@@ -195,6 +195,36 @@ def test_positional_choices(shell):
         pytest.skip("WiP")
 
 
+def test_zsh_optional_positionals_keep_parser_order():
+    parser = ArgumentParser(prog="keyring", add_help=False)
+    parser.add_argument("operation", choices=["get", "set", "del"], nargs="?")
+    parser.add_argument("service", nargs="?")
+
+    completion = complete(parser, "zsh")
+    operation = '":operation:(get set del)"'
+    service = '":service:"'
+
+    assert completion.count(operation) == 1
+    assert completion.count(service) == 1
+    assert completion.index(operation) < completion.index(service)
+
+
+def test_zsh_subparser_positionals_are_not_duplicated():
+    parser = ArgumentParser(prog="test", add_help=False)
+    subparsers = parser.add_subparsers()
+    subparser = subparsers.add_parser("run", help="run", add_help=False)
+    subparser.add_argument("mode", choices=["fast", "slow"], nargs="?")
+    subparser.add_argument("path", nargs="?")
+
+    completion = complete(parser, "zsh")
+    mode = '":mode:(fast slow)"'
+    path = '":path:"'
+
+    assert completion.count(mode) == 1
+    assert completion.count(path) == 1
+    assert completion.index(mode) < completion.index(path)
+
+
 @fix_shell
 def test_custom_complete(shell):
     parser = ArgumentParser(prog="test")
