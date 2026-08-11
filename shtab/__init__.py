@@ -557,43 +557,40 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
         paths = paths or []
         subcmds = []
         for sub in parser._get_positional_actions():
-            if sub.help != SUPPRESS and isinstance(sub.choices, dict): # subparser
-                log.debug(f"choices:{prefix}:{sorted(sub.choices)}")
-                public_cmds = get_public_subcommands(sub)
-                for cmd, subparser in sub.choices.items():
-                    if cmd not in public_cmds:
-                        log.debug("skip:subcommand:%s", cmd)
-                        continue
-                    log.debug("subcommand:%s", cmd)
+            if sub.help == SUPPRESS or not isinstance(sub.choices, dict):
+                continue
+            log.debug(f"subparser:choices:{prefix}:{sorted(sub.choices)}")
+            public_cmds = get_public_subcommands(sub)
+            for cmd, subparser in sub.choices.items():
+                if cmd not in public_cmds:
+                    log.debug("skip:subcommand:%s", cmd)
+                    continue
+                log.debug("subcommand:%s", cmd)
+                # optionals
+                arguments = [
+                    format_optional(opt, parser) for opt in subparser._get_optional_actions()
+                    if opt.help != SUPPRESS]
+                # positionals
+                arguments.extend(
+                    format_positional(opt, parser) for opt in subparser._get_positional_actions()
+                    if not isinstance(opt.choices, dict) if opt.help != SUPPRESS)
+                # help text
+                formatter = subparser._get_formatter()
+                backup_width = formatter._width
+                formatter._width = 1234567 # large number to effectively disable wrapping
+                desc = formatter._format_text(subparser.description or "").strip()
+                formatter._width = backup_width
 
-                    # optionals
-                    arguments = [
-                        format_optional(opt, parser) for opt in subparser._get_optional_actions()
-                        if opt.help != SUPPRESS]
-
-                    # positionals
-                    arguments.extend(
-                        format_positional(opt, parser)
-                        for opt in subparser._get_positional_actions()
-                        if not isinstance(opt.choices, dict) if opt.help != SUPPRESS)
-
-                    # help text
-                    formatter = subparser._get_formatter()
-                    backup_width = formatter._width
-                    formatter._width = 1234567 # large number to effectively disable wrapping
-                    desc = formatter._format_text(subparser.description or "").strip()
-                    formatter._width = backup_width
-
-                    new_pref = f"{prefix}_{wordify(cmd)}"
-                    options = all_commands[new_pref] = {
-                        "cmd": cmd, "help": desc.split("\n")[0], "arguments": arguments,
-                        "paths": [*paths, cmd]}
-                    new_subcmds = recurse(subparser, new_pref, [*paths, cmd])
-                    options["commands"] = {
-                        all_commands[pref]["cmd"]: all_commands[pref]
-                        for pref in new_subcmds if pref in all_commands}
-                    subcmds.extend([*new_subcmds, new_pref])
-                    log.debug("subcommands:%s:%s", cmd, options)
+                new_pref = f"{prefix}_{wordify(cmd)}"
+                options = all_commands[new_pref] = {
+                    "cmd": cmd, "help": desc.split("\n")[0], "arguments": arguments,
+                    "paths": [*paths, cmd]}
+                new_subcmds = recurse(subparser, new_pref, [*paths, cmd])
+                options["commands"] = {
+                    all_commands[pref]["cmd"]: all_commands[pref]
+                    for pref in new_subcmds if pref in all_commands}
+                subcmds.extend([*new_subcmds, new_pref])
+                log.debug("subcommands:%s:%s", cmd, options)
         return subcmds
 
     recurse(parser, root_prefix)
