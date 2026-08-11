@@ -688,8 +688,7 @@ def test_path_completion_after_redirection(change_dir):
 def test_bash_path_completion_in_middle_of_command(change_dir):
     """A path option still completes when the next option is already typed."""
     parser = ArgumentParser(prog="test")
-    directory = parser.add_argument("-d", "--directory")
-    directory.complete = shtab.DIRECTORY
+    parser.add_argument("-d", "--directory").complete = shtab.DIRECTORY
     parser.add_argument("-w", "--wdir")
     completion = shtab.complete(parser, shell="bash")
     (change_dir / "folder").mkdir()
@@ -699,9 +698,8 @@ def test_bash_path_completion_in_middle_of_command(change_dir):
 
 def test_bash_option_completion_after_positional_path():
     parser = ArgumentParser(prog="test")
-    path = parser.add_argument("path")
-    path.complete = shtab.DIRECTORY
+    parser.add_argument("path").complete = shtab.DIRECTORY
     parser.add_argument("-w", "--wdir")
     completion = shtab.complete(parser, shell="bash")
-    shell = Bash(completion + "\nCOMP_WORDS=(test . -); COMP_CWORD=2; _shtab_test;")
-    shell.test('[[ " ${COMPREPLY[*]} " == *" -w "* ]]')
+    shell = Bash(completion + "\nCOMP_WORDS=(test . --w); COMP_CWORD=2; _shtab_test;")
+    shell.test('"${COMPREPLY[*]}" = "--wdir"')
