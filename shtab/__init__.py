@@ -95,13 +95,14 @@ def glob(*patterns: str) -> CompleteType:
             "powershell": dedent(f"""
               function _shtab_glob_compgen_{sha(patterns)} {{
                 param([string]$WordToComplete)
+                $dir = if ($WordToComplete) {{ Split-Path -Path $WordToComplete -Parent }} else {{ "" }}
                 Get-ChildItem -Path "$WordToComplete*" `
                 -Include {_powershell_list(patterns)} -File -ErrorAction SilentlyContinue |
-                  ForEach-Object {{ $_.Name }}
+                  ForEach-Object {{ _shtab_powershell_join_prefix $dir $_.Name }}
                 Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-                  ForEach-Object {{ $_.Name + [System.IO.Path]::DirectorySeparatorChar }}
+                  ForEach-Object {{ (_shtab_powershell_join_prefix $dir $_.Name) + [System.IO.Path]::DirectorySeparatorChar }}
               }}
-              """),
+              """)
         }} # yapf: disable
 
 
@@ -1169,9 +1170,11 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
     compgens = {}
     choices = {}
     nargs = {}
+    help_text = {}
     preambles = []
 
     def recurse(parser, prefix):
+        get_help = parser._get_formatter()._expand_help
         discovered_subparsers = []
         for i, positional in enumerate(parser._get_positional_actions()):
             action_key = f"{prefix}_pos_{i}"
@@ -1190,13 +1193,22 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                         if choice in public_cmds:
                             discovered_subparsers.append(str(choice))
                             this_positional_choices.append(str(choice))
-                            recurse(positional.choices[choice], f"{prefix}_{wordify(choice)}")
+                            subparser = positional.choices[choice]
+                            subcmd_help = next(
+                                (sub.help for sub in positional._get_subactions()
+                                 if sub.dest == choice and sub.help not in (None, SUPPRESS)), None)
+                            desc = (subparser.description or subcmd_help or "").strip()
+                            if desc:
+                                help_text[f"{prefix}_{wordify(choice)}"] = desc.split("\n")[0]
+                            recurse(subparser, f"{prefix}_{wordify(choice)}")
                         else:
                             log.debug("skip:subcommand:%s", choice)
                     else:
                         this_positional_choices.append(str(choice))
                 if this_positional_choices:
                     choices[action_key] = this_positional_choices
+            if positional.help not in (None, SUPPRESS):
+                help_text[action_key] = get_help(positional)
             if positional.nargs not in (None, "1", "?"):
                 nargs[action_key] = str(positional.nargs)
         if discovered_subparsers:
@@ -1217,11 +1229,13 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                         compgens[opt_key] = comp_pattern
                 if optional.choices:
                     choices[opt_key] = list(map(str, optional.choices))
+                if optional.help not in (None, SUPPRESS):
+                    help_text[opt_key] = get_help(optional)
                 if optional.nargs is not None and optional.nargs != 1:
                     nargs[opt_key] = str(optional.nargs)
 
     recurse(root_parser, root_prefix)
-    return subparsers, option_strings, compgens, choices, nargs, preambles
+    return subparsers, option_strings, compgens, choices, nargs, help_text, preambles
 
 
 @mark_completer("powershell")
@@ -1232,7 +1246,7 @@ def complete_powershell(parser, root_prefix=None, preamble="", choice_functions=
     See `complete` for arguments.
     """
     root_prefix = wordify(f"_shtab_{root_prefix or parser.prog}")
-    (subparsers, option_strings, compgens, choices, nargs,
+    (subparsers, option_strings, compgens, choices, nargs, help_text,
      extra_preambles) = get_powershell_commands(parser, root_prefix,
                                                 choice_functions=choice_functions)
     # References:
@@ -1251,21 +1265,29 @@ $$${root_prefix}_option_strings = ${option_strings_ht}
 $$${root_prefix}_compgens = ${compgens_ht}
 $$${root_prefix}_choices = ${choices_ht}
 $$${root_prefix}_nargs = ${nargs_ht}
+$$${root_prefix}_help = ${help_ht}
 
 # --- Helper functions ---
 
+function _shtab_powershell_join_prefix {
+  param([string]$$Dir, [string]$$Name)
+  if ($$Dir) { return (Join-Path $$Dir $$Name) } else { return $$Name }
+}
+
 function _shtab_powershell_compgen_files {
   param([string]$$WordToComplete)
+  $$dir = if ($$WordToComplete) { Split-Path -Path $$WordToComplete -Parent } else { "" }
   Get-ChildItem -Path "$$WordToComplete*" -File -ErrorAction SilentlyContinue |
-    ForEach-Object { $$_.Name }
+    ForEach-Object { _shtab_powershell_join_prefix $$dir $$_.Name }
   Get-ChildItem -Path "$$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-    ForEach-Object { $$_.Name + [System.IO.Path]::DirectorySeparatorChar }
+    ForEach-Object { (_shtab_powershell_join_prefix $$dir $$_.Name) + [System.IO.Path]::DirectorySeparatorChar }
 }
 
 function _shtab_powershell_compgen_dirs {
   param([string]$$WordToComplete)
+  $$dir = if ($$WordToComplete) { Split-Path -Path $$WordToComplete -Parent } else { "" }
   Get-ChildItem -Path "$$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-    ForEach-Object { $$_.Name + [System.IO.Path]::DirectorySeparatorChar }
+    ForEach-Object { (_shtab_powershell_join_prefix $$dir $$_.Name) + [System.IO.Path]::DirectorySeparatorChar }
 }
 
 function _shtab_powershell_replace_nonword {
@@ -1311,6 +1333,11 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
   function Get-ActionNargs($actionKey) {
     $n = $$${root_prefix}_nargs[$actionKey]
     if ($n) { return $n } else { return '1' }
+  }
+
+  # Helper: look up help text for a given action key (empty if none)
+  function Get-ActionHelp($$actionKey) {
+    return $$${root_prefix}_help[$$actionKey]
   }
 
   # Walk completed tokens to determine current parser state
@@ -1363,41 +1390,70 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
   $completions = @()
 
   if (-not $$posOnly -and $$wordToComplete -like '-*') {
-    # Complete option strings
+    # Complete option strings, tooltipped with each option's own help text
     $$opts = $$${root_prefix}_option_strings[$$prefix]
     if ($$opts) {
-      $$completions = @($$opts | Where-Object { $$_ -like "$$wordToComplete*" })
+      foreach ($$opt in $$opts) {
+        if ($$opt -like "$$wordToComplete*") {
+          $$optKey = $$prefix + '_' + (_shtab_powershell_replace_nonword $$opt)
+          $$completions += , @{Text = $$opt; Tooltip = Get-ActionHelp $$optKey}
+        }
+      }
     }
   } else {
-    # Complete subparsers (only when current action is positional)
+    # Complete subparsers (only when current action is positional),
+    # tooltipped with each subcommand's own help text
     if ($$currentActionIsPositional) {
       $$subs = $$${root_prefix}_subparsers[$$prefix]
       if ($$subs) {
-        $$completions += @($$subs | Where-Object { $$_ -like "$$wordToComplete*" })
+        foreach ($$sub in $$subs) {
+          if ($$sub -like "$$wordToComplete*") {
+            $$subKey = $$prefix + '_' + (_shtab_powershell_replace_nonword $$sub)
+            $$completions += , @{Text = $$sub; Tooltip = Get-ActionHelp $$subKey}
+          }
+        }
       }
     }
+
+    $$actionHelp = Get-ActionHelp $$currentActionKey
 
     # Complete choices for current action (positional or option)
     $$actionChoices = $$${root_prefix}_choices[$$currentActionKey]
     if ($$actionChoices) {
-      $$completions += @($$actionChoices | Where-Object { $$_ -like "$$wordToComplete*" })
+      foreach ($$choice in $$actionChoices) {
+        if ($$choice -like "$$wordToComplete*") {
+          $$completions += , @{Text = $$choice; Tooltip = $$actionHelp}
+        }
+      }
     }
     # Complete using compgen function for current action
     $$actionCompgen = $$${root_prefix}_compgens[$$currentActionKey]
     if ($$actionCompgen) {
-      $$completions += @(& $$actionCompgen $$wordToComplete)
+      foreach ($$item in @(& $$actionCompgen $$wordToComplete)) {
+        $$completions += , @{Text = $$item; Tooltip = $$actionHelp}
+      }
     }
   }
 
-  # Deduplicate and emit CompletionResult objects
-  $$completions | Select-Object -Unique | ForEach-Object {
-    [System.Management.Automation.CompletionResult]::new(
-      $$_,               # completionText
-      $$_,               # listItemText
-      'ParameterValue',  # resultType
-      $$_                # toolTip
-    )
+  # Deduplicate (by text) and emit CompletionResult objects.
+  # A script block that produces literally no output makes PowerShell fall back to its
+  # own file-path completion (PowerShell/PowerShell#19628); returning $null explicitly
+  # is the documented workaround to suppress that fallback.
+  $$seen = New-Object System.Collections.Generic.HashSet[string]
+  $$results = @()
+  foreach ($$c in $$completions) {
+    if ($$seen.Add($$c.Text)) {
+      $$tooltip = if ($$c.Tooltip) { $$c.Tooltip } else { $$c.Text }
+      $$results += [System.Management.Automation.CompletionResult]::new(
+        $$c.Text,          # completionText
+        $$c.Text,          # listItemText
+        'ParameterValue',  # resultType
+        $$tooltip          # toolTip
+      )
+    }
   }
+  if ($$results.Count -eq 0) { return $$null }
+  $$results
 }
 """).safe_substitute(
         subparsers_ht=_powershell_hashtable(subparsers),
@@ -1405,6 +1461,7 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
         compgens_ht=_powershell_flat_hashtable(compgens),
         choices_ht=_powershell_hashtable(choices),
         nargs_ht=_powershell_flat_hashtable(nargs),
+        help_ht=_powershell_flat_hashtable(help_text),
         preamble=f"\n# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
         root_prefix=root_prefix,
         prog=parser.prog,

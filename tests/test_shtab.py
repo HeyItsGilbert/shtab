@@ -7,6 +7,7 @@ import select
 import shutil
 import signal
 import subprocess
+import tempfile
 import time
 from argparse import SUPPRESS, Action, ArgumentParser
 
@@ -335,6 +336,32 @@ def fish_candidates(completion, cmdline):
     return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
 
 
+def powershell_candidates(completion, cmdline, cwd):
+    """Source `completion` in PowerShell, then return the completion candidates for `cmdline`."""
+    if not shutil.which('pwsh'):
+        pytest.skip("pwsh not available")
+    # write the script outside `cwd` so it doesn't itself become a file-completion candidate
+    with tempfile.NamedTemporaryFile("w", suffix=".ps1", delete=False) as f:
+        f.write(completion)
+        script = f.name
+    try:
+        quoted_script = "'" + script.replace("'", "''") + "'"
+        quoted_line = "'" + cmdline.replace("'", "''") + "'"
+        proc = subprocess.run([
+            'pwsh', '-NoProfile', '-NonInteractive', '-Command', f"""
+. {quoted_script}
+$line = {quoted_line}
+$results = TabExpansion2 -inputScript $line -cursorColumn $line.Length
+$results.CompletionMatches |
+  Where-Object {{ $_.ResultType -eq 'ParameterValue' }} |
+  ForEach-Object {{ $_.CompletionText }}
+"""], cwd=cwd, capture_output=True, text=True)
+    finally:
+        os.unlink(script)
+    assert proc.returncode == 0, proc.stderr
+    return [line for line in proc.stdout.splitlines() if line.strip()]
+
+
 def tcsh_candidates(completion, cmdlines, cwd):
     """
     Return pty-driven completion candidates for each of `cmdlines`.
@@ -445,6 +472,22 @@ def test_file_completion(shell, change_dir, test_parser):
                                "myprog create alpha subdir/nes") == ["subdir/nested.txt"]
         absolute = change_dir / "subdir" / "nes"
         candidates = fish_candidates(completion, f"myprog create --exclude-from {absolute}")
+        assert candidates[0].endswith("subdir/nested.txt")
+        assert len(candidates) == 1
+    elif shell == 'powershell':
+        assert powershell_candidates(completion, "myprog create alpha test_",
+                                     change_dir) == ["test_file.txt"]
+        assert powershell_candidates(completion, "myprog create --exclude-from ",
+                                     change_dir) == ["test_file.txt"]
+        assert not powershell_candidates(completion, "myprog delete test_", change_dir)
+        assert not powershell_candidates(completion, "myprog --repo test_", change_dir)
+        (change_dir / "subdir").mkdir()
+        (change_dir / "subdir" / "nested.txt").touch()
+        assert powershell_candidates(completion, "myprog create alpha subdir/nes",
+                                     change_dir) == ["subdir/nested.txt"]
+        absolute = change_dir / "subdir" / "nes"
+        candidates = powershell_candidates(completion, f"myprog create --exclude-from {absolute}",
+                                           change_dir)
         assert candidates[0].endswith("subdir/nested.txt")
         assert len(candidates) == 1
     else:

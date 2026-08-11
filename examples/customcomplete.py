@@ -26,7 +26,9 @@ shtab.add_argument_to(parser, "shell", parent=main_parser) # magic!
 parser = subparsers.add_parser("process", help="parse files")
 # dynamic command tab completion builtin shortcut
 # WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
-parser.add_argument("token").complete = shtab.cmd("head -c5 /dev/random | base32")
+# NOTE: the command is run verbatim by whichever shell is completing (bash, powershell,
+# etc.), so stick to portable/cross-platform commands (e.g. `git`, not `head`/`/dev/random`)
+parser.add_argument("token").complete = shtab.cmd("git rev-parse --short HEAD")
 # file tab completion builtin shortcut
 parser.add_argument("-i", "--input-file", dest="input_name").complete = shtab.FILE
 # directory tab completion builtin shortcut
