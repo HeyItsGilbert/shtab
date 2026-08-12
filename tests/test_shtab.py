@@ -695,3 +695,13 @@ def test_bash_path_completion_in_middle_of_command(change_dir):
     (change_dir / "folder").mkdir()
     shell = Bash(completion + "\nCOMP_WORDS=(test -d -w); COMP_CWORD=2; _shtab_test;")
     shell.test('"${COMPREPLY[@]}" = "folder"')
+
+
+def test_bash_option_completion_after_positional_path():
+    parser = ArgumentParser(prog="test")
+    path = parser.add_argument("path")
+    path.complete = shtab.DIRECTORY
+    parser.add_argument("-w", "--wdir")
+    completion = shtab.complete(parser, shell="bash")
+    shell = Bash(completion + "\nCOMP_WORDS=(test . -); COMP_CWORD=2; _shtab_test;")
+    shell.test('[[ " ${COMPREPLY[*]} " == *" -w "* ]]')
