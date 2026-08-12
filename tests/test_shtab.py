@@ -1,13 +1,11 @@
 """Tests for `shtab`."""
 import logging
 import os
-import pty
 import re
 import select
 import shutil
 import signal
 import subprocess
-import tempfile
 import time
 from argparse import SUPPRESS, Action, ArgumentParser
 
@@ -336,30 +334,20 @@ def fish_candidates(completion, cmdline):
     return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
 
 
-def powershell_candidates(completion, cmdline, cwd):
+def powershell_candidates(completion, cmdline):
     """Source `completion` in PowerShell, then return the completion candidates for `cmdline`."""
     if not shutil.which('pwsh'):
         pytest.skip("pwsh not available")
-    # write the script outside `cwd` so it doesn't itself become a file-completion candidate
-    with tempfile.NamedTemporaryFile("w", suffix=".ps1", delete=False) as f:
-        f.write(completion)
-        script = f.name
-    try:
-        quoted_script = "'" + script.replace("'", "''") + "'"
-        quoted_line = "'" + cmdline.replace("'", "''") + "'"
-        proc = subprocess.run([
-            'pwsh', '-NoProfile', '-NonInteractive', '-Command', f"""
-. {quoted_script}
-$line = {quoted_line}
+    proc = subprocess.check_output([
+        'pwsh', '-NoProfile', '-NonInteractive', '-Command', f"""
+{completion}
+$line = '{cmdline}'
 $results = TabExpansion2 -inputScript $line -cursorColumn $line.Length
 $results.CompletionMatches |
   Where-Object {{ $_.ResultType -eq 'ParameterValue' }} |
   ForEach-Object {{ $_.CompletionText }}
-"""], cwd=cwd, capture_output=True, text=True)
-    finally:
-        os.unlink(script)
-    assert proc.returncode == 0, proc.stderr
-    return [line for line in proc.stdout.splitlines() if line.strip()]
+"""], text=True)
+    return [line for line in proc.splitlines() if line.strip()]
 
 
 def tcsh_candidates(completion, cmdlines, cwd):
@@ -368,6 +356,7 @@ def tcsh_candidates(completion, cmdlines, cwd):
 
     Reason: tcsh has no `complete -C` equivalent.
     """
+    pty = pytest.importorskip('pty')
     if not shutil.which('tcsh'):
         pytest.skip("tcsh not available")
     script = cwd / "completion.tcsh"
@@ -475,20 +464,18 @@ def test_file_completion(shell, change_dir, test_parser):
         assert candidates[0].endswith("subdir/nested.txt")
         assert len(candidates) == 1
     elif shell == 'powershell':
-        assert powershell_candidates(completion, "myprog create alpha test_",
-                                     change_dir) == ["test_file.txt"]
-        assert powershell_candidates(completion, "myprog create --exclude-from ",
-                                     change_dir) == ["test_file.txt"]
-        assert not powershell_candidates(completion, "myprog delete test_", change_dir)
-        assert not powershell_candidates(completion, "myprog --repo test_", change_dir)
+        assert powershell_candidates(completion, "myprog create alpha test_") == ["test_file.txt"]
+        assert powershell_candidates(completion,
+                                     "myprog create --exclude-from ") == ["test_file.txt"]
+        assert not powershell_candidates(completion, "myprog delete test_")
+        assert not powershell_candidates(completion, "myprog --repo test_")
         (change_dir / "subdir").mkdir()
         (change_dir / "subdir" / "nested.txt").touch()
         assert powershell_candidates(completion, "myprog create alpha subdir/nes",
-                                     change_dir) == ["subdir/nested.txt"]
+                                     change_dir) == [f"subdir{os.sep}nested.txt"]
         absolute = change_dir / "subdir" / "nes"
-        candidates = powershell_candidates(completion, f"myprog create --exclude-from {absolute}",
-                                           change_dir)
-        assert candidates[0].endswith("subdir/nested.txt")
+        candidates = powershell_candidates(completion, f"myprog create --exclude-from {absolute}")
+        assert candidates[0].endswith(f"subdir{os.sep}nested.txt")
         assert len(candidates) == 1
     else:
         raise NotImplementedError(completion)
@@ -811,7 +798,10 @@ def change_dir(tmp_path):
     os.chdir(original_cwd)
 
 
-def test_path_completion_after_redirection(change_dir):
+@fix_shell
+def test_path_completion_after_redirection(change_dir, shell):
+    if shell != 'bash':
+        pytest.skip("WiP")
     parser = ArgumentParser(prog="test")
     shtab.add_argument_to(parser, ["-s", "--shell"])
     completion = complete(parser, 'bash')

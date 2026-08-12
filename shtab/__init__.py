@@ -95,14 +95,15 @@ def glob(*patterns: str) -> CompleteType:
             "powershell": dedent(f"""
               function _shtab_glob_compgen_{sha(patterns)} {{
                 param([string]$WordToComplete)
-                $dir = if ($WordToComplete) {{ Split-Path -Path $WordToComplete -Parent }} else {{ "" }}
+                $dir = if ($WordToComplete) {{
+                  Split-Path -Path $WordToComplete -Parent  }} else {{ "" }}
                 Get-ChildItem -Path "$WordToComplete*" `
                 -Include {_powershell_list(patterns)} -File -ErrorAction SilentlyContinue |
                   ForEach-Object {{ _shtab_powershell_join_prefix $dir $_.Name }}
                 Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-                  ForEach-Object {{ (_shtab_powershell_join_prefix $dir $_.Name) + [System.IO.Path]::DirectorySeparatorChar }}
-              }}
-              """)
+                  ForEach-Object {{ (_shtab_powershell_join_prefix $dir $_.Name) `
+                  + [System.IO.Path]::DirectorySeparatorChar }}
+              }}"""),
         }} # yapf: disable
 
 
@@ -1270,24 +1271,26 @@ $$${root_prefix}_help = ${help_ht}
 # --- Helper functions ---
 
 function _shtab_powershell_join_prefix {
-  param([string]$$Dir, [string]$$Name)
-  if ($$Dir) { return (Join-Path $$Dir $$Name) } else { return $$Name }
+  param([string]$Dir, [string]$Name)
+  if ($Dir) { return (Join-Path $Dir $Name) } else { return $Name }
 }
 
 function _shtab_powershell_compgen_files {
-  param([string]$$WordToComplete)
-  $$dir = if ($$WordToComplete) { Split-Path -Path $$WordToComplete -Parent } else { "" }
-  Get-ChildItem -Path "$$WordToComplete*" -File -ErrorAction SilentlyContinue |
-    ForEach-Object { _shtab_powershell_join_prefix $$dir $$_.Name }
-  Get-ChildItem -Path "$$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-    ForEach-Object { (_shtab_powershell_join_prefix $$dir $$_.Name) + [System.IO.Path]::DirectorySeparatorChar }
+  param([string]$WordToComplete)
+  $dir = if ($WordToComplete) { Split-Path -Path $WordToComplete -Parent } else { "" }
+  Get-ChildItem -Path "$WordToComplete*" -File -ErrorAction SilentlyContinue |
+    ForEach-Object { _shtab_powershell_join_prefix $dir $_.Name }
+  Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
+    ForEach-Object { (_shtab_powershell_join_prefix $dir $_.Name) `
+    + [System.IO.Path]::DirectorySeparatorChar }
 }
 
 function _shtab_powershell_compgen_dirs {
-  param([string]$$WordToComplete)
-  $$dir = if ($$WordToComplete) { Split-Path -Path $$WordToComplete -Parent } else { "" }
-  Get-ChildItem -Path "$$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-    ForEach-Object { (_shtab_powershell_join_prefix $$dir $$_.Name) + [System.IO.Path]::DirectorySeparatorChar }
+  param([string]$WordToComplete)
+  $dir = if ($WordToComplete) { Split-Path -Path $WordToComplete -Parent } else { "" }
+  Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
+    ForEach-Object { (_shtab_powershell_join_prefix $dir $_.Name) `
+    + [System.IO.Path]::DirectorySeparatorChar }
 }
 
 function _shtab_powershell_replace_nonword {
@@ -1336,8 +1339,8 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
   }
 
   # Helper: look up help text for a given action key (empty if none)
-  function Get-ActionHelp($$actionKey) {
-    return $$${root_prefix}_help[$$actionKey]
+  function Get-ActionHelp($actionKey) {
+    return $$${root_prefix}_help[$actionKey]
   }
 
   # Walk completed tokens to determine current parser state
@@ -1389,71 +1392,68 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
 
   $completions = @()
 
-  if (-not $$posOnly -and $$wordToComplete -like '-*') {
+  if (-not $posOnly -and $wordToComplete -like '-*') {
     # Complete option strings, tooltipped with each option's own help text
-    $$opts = $$${root_prefix}_option_strings[$$prefix]
-    if ($$opts) {
-      foreach ($$opt in $$opts) {
-        if ($$opt -like "$$wordToComplete*") {
-          $$optKey = $$prefix + '_' + (_shtab_powershell_replace_nonword $$opt)
-          $$completions += , @{Text = $$opt; Tooltip = Get-ActionHelp $$optKey}
+    $opts = $$${root_prefix}_option_strings[$prefix]
+    if ($opts) {
+      foreach ($opt in $opts) {
+        if ($opt -like "$wordToComplete*") {
+          $optKey = $prefix + '_' + (_shtab_powershell_replace_nonword $opt)
+          $completions += , @{Text = $opt; Tooltip = Get-ActionHelp $optKey}
         }
       }
     }
   } else {
     # Complete subparsers (only when current action is positional),
     # tooltipped with each subcommand's own help text
-    if ($$currentActionIsPositional) {
-      $$subs = $$${root_prefix}_subparsers[$$prefix]
-      if ($$subs) {
-        foreach ($$sub in $$subs) {
-          if ($$sub -like "$$wordToComplete*") {
-            $$subKey = $$prefix + '_' + (_shtab_powershell_replace_nonword $$sub)
-            $$completions += , @{Text = $$sub; Tooltip = Get-ActionHelp $$subKey}
+    if ($currentActionIsPositional) {
+      $subs = $$${root_prefix}_subparsers[$prefix]
+      if ($subs) {
+        foreach ($sub in $subs) {
+          if ($sub -like "$wordToComplete*") {
+            $subKey = $prefix + '_' + (_shtab_powershell_replace_nonword $sub)
+            $completions += , @{Text = $sub; Tooltip = Get-ActionHelp $subKey}
           }
         }
       }
     }
 
-    $$actionHelp = Get-ActionHelp $$currentActionKey
+    $actionHelp = Get-ActionHelp $currentActionKey
 
     # Complete choices for current action (positional or option)
-    $$actionChoices = $$${root_prefix}_choices[$$currentActionKey]
-    if ($$actionChoices) {
-      foreach ($$choice in $$actionChoices) {
-        if ($$choice -like "$$wordToComplete*") {
-          $$completions += , @{Text = $$choice; Tooltip = $$actionHelp}
+    $actionChoices = $$${root_prefix}_choices[$currentActionKey]
+    if ($actionChoices) {
+      foreach ($choice in $actionChoices) {
+        if ($choice -like "$wordToComplete*") {
+          $completions += , @{Text = $choice; Tooltip = $actionHelp}
         }
       }
     }
     # Complete using compgen function for current action
-    $$actionCompgen = $$${root_prefix}_compgens[$$currentActionKey]
-    if ($$actionCompgen) {
-      foreach ($$item in @(& $$actionCompgen $$wordToComplete)) {
-        $$completions += , @{Text = $$item; Tooltip = $$actionHelp}
+    $actionCompgen = $$${root_prefix}_compgens[$currentActionKey]
+    if ($actionCompgen) {
+      foreach ($item in @(& $actionCompgen $wordToComplete)) {
+        $completions += , @{Text = $item; Tooltip = $actionHelp}
       }
     }
   }
-
-  # Deduplicate (by text) and emit CompletionResult objects.
-  # A script block that produces literally no output makes PowerShell fall back to its
-  # own file-path completion (PowerShell/PowerShell#19628); returning $null explicitly
-  # is the documented workaround to suppress that fallback.
-  $$seen = New-Object System.Collections.Generic.HashSet[string]
-  $$results = @()
-  foreach ($$c in $$completions) {
-    if ($$seen.Add($$c.Text)) {
-      $$tooltip = if ($$c.Tooltip) { $$c.Tooltip } else { $$c.Text }
-      $$results += [System.Management.Automation.CompletionResult]::new(
-        $$c.Text,          # completionText
-        $$c.Text,          # listItemText
+  # Deduplicate (by text) and emit CompletionResult objects
+  $seen = New-Object System.Collections.Generic.HashSet[string]
+  $results = @()
+  foreach ($c in $completions) {
+    if ($seen.Add($c.Text)) {
+      $tooltip = if ($c.Tooltip) { $c.Tooltip } else { $c.Text }
+      $results += [System.Management.Automation.CompletionResult]::new(
+        $c.Text,          # completionText
+        $c.Text,          # listItemText
         'ParameterValue',  # resultType
-        $$tooltip          # toolTip
+        $tooltip          # toolTip
       )
     }
   }
-  if ($$results.Count -eq 0) { return $$null }
-  $$results
+  # Prevent fallback file-path completion (PowerShell/PowerShell#19628)
+  if ($results.Count -eq 0) { return $null }
+  $results
 }
 """).safe_substitute(
         subparsers_ht=_powershell_hashtable(subparsers),
