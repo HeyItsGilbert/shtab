@@ -458,7 +458,8 @@ ${root_prefix}() {
   # Generate the completions
 
   COMPREPLY=()
-  if [[ $pos_only = 0 && "${completing_word}" == -* ]]; then
+  if [[ $pos_only = 0 && "${completing_word}" == -* &&
+        ( -z "${current_action_compgen}" || "$current_action_is_positional" = true ) ]]; then
     # optional argument started: use option strings
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_option_strings[*]}" -- "${completing_word}")
@@ -467,9 +468,12 @@ ${root_prefix}() {
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
   else
     # use choices & compgen
+    local action_compgen_word="${completing_word}"
+    # handle tab-completing in the middle of a line (#248 <- #116)
+    [[ -n "${current_action_compgen}" && "${completing_word}" == -* ]] && action_compgen_word=""
     [ -n "${current_action_compgen}" ] &&
       while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
-        "${current_action_compgen}" "${completing_word}")
+        "${current_action_compgen}" "${action_compgen_word}")
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_action_choices[*]}" -- "${completing_word}")
   fi
