@@ -97,8 +97,11 @@ Not working?
 - Ensure that `prog` is set:
     - if using [`options.entry_points.console_scripts=MY_PROG=...`](https://setuptools.pypa.io/en/latest/userguide/entry_point.html), then ensure the main parser's `prog` matches `argparse.ArgumentParser(prog="MY_PROG")` or override it using `shtab MY_PROG.get_main_parser --prog=MY_PROG`.
     - if executing a script file `./MY_PROG.py` (with a [shebang](<https://en.wikipedia.org/wiki/Shebang_(Unix)>) `#!/usr/bin/env python`) directly, then use `argparse.ArgumentParser(prog="MY_PROG.py")` or override it using `shtab MY_PROG.get_main_parser --prog=MY_PROG.py`.
-- Ensure that all arguments have `help` messages (`parser.add_argument('positional', help="documented; i.e. not hidden")`).
-- Path completion is disabled by default, and must be enabled explicitly (`parser.add_argument('positional').complete = shtab.FILE`).
+- Any argument with `help=argparse.SUPPRESS` is skipped.
+- Default completion (when no choices are specified) is disabled. Enable it explicitly via e.g. `parser.add_argument('positional').complete = shtab.FILE`.
+- Some shells (e.g. `zsh`, `fish`) print information during tab completion:
+    - subparser `description` takes precedence over `help`.
+    - argument `metavar` takes precedence over `dest`.
 - [Ask a general question on StackOverflow](https://stackoverflow.com/questions/tagged/shtab).
 - [Report bugs and open feature requests on GitHub][issues].
 
