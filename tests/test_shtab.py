@@ -144,7 +144,7 @@ def test_prog_scripts(shell, capsys):
             'complete -c script.py -e', 'complete -c script.py -f',
             f"{start} -s h -l help -d 'show this help message and exit'",
             f"{start} -l version -d 'show program'\"'\"'s version number and exit'",
-            f'{start} -s s -l shell -xka "bash zsh tcsh fish"',
+            f'{start} -s s -l shell -xka "bash zsh tcsh fish" -d shell',
             f"{start} -s o -l output -x -d 'output file (- for stdout)'",
             f"{start} -l prefix -x -d 'prepended to generated functions to avoid clashes'",
             f"{start} -l preamble -x -d 'prepended to generated script'",
@@ -289,7 +289,7 @@ def test_non_sequence_choices(shell, tmp_path):
         shell.compgen('-W "${_shtab_myprog_pos_0_choices[*]}"', "t", "three")
     elif shell == 'zsh':
         specs = zsh_specs(completion, "_shtab_myprog_options", tmp_path)
-        assert specs == ["--mapping[]:mapping:(one two)", ":posA:(three)"]
+        assert specs == ["--mapping[mapping]:mapping:(one two)", ":posA:(three)"]
     elif shell == 'fish':
         assert fish_candidates(completion, "myprog t") == ["three"]
         assert fish_candidates(completion, "myprog --mapping t") == ["two"]
@@ -391,20 +391,25 @@ def tcsh_candidates(completion, cmdlines, cwd):
     return candidates
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def test_parser():
     # NOTE: `prog="test"` fails on fish<4 due to autoloading of builtin `complete -c test -e`
-    parser = ArgumentParser(prog="myprog")
+    parser = ArgumentParser(prog="myprog", description="%(prog)s (root) description")
     parser.add_argument("--repo", "-r", help="repository to use")
+    parser.add_argument("--hidden-opt", help=SUPPRESS)
     subparsers = parser.add_subparsers(dest="cmd")
     create = subparsers.add_parser("create", help="create something")
-    create.add_argument("--exclude-from", help="exclude patterns file").complete = shtab.FILE
+    create.add_argument("--exclude-from", help="exclude patterns file",
+                        metavar="excl").complete = shtab.FILE
     create.add_argument("name", choices=["alpha", "beta"], help="name of the thing to create")
     create.add_argument("paths", nargs="*", help="paths to add").complete = shtab.FILE
-    delete = subparsers.add_parser("delete", help="delete something")
+    delete = subparsers.add_parser("delete", help="delete something", description="%(prog)s desc")
     delete.add_argument("--force", action="store_true", help="force deletion")
     delete.add_argument("name", help="name of the thing to delete")
-    subparsers.add_parser("list", help="list things")
+    subparsers.add_parser("list", help="%(prog)s")
+    # forward-compat with python/cpython#67037
+    hidden = subparsers.add_parser("hidden", help=SUPPRESS)
+    hidden.add_argument("--hidden", help="should be hidden")
     return parser
 
 
@@ -484,7 +489,7 @@ def test_fish_subcommand_description():
     subparsers.add_parser("subB", description="description wins\nsecond line", help="unused")
     completion = complete(parser, 'fish')
     assert "-a subA -d 'help message'" in completion
-    assert "-a subB -d 'description wins'" in completion
+    assert "-a subB -d 'description wins second line'" in completion
 
 
 def test_fish_choice_flags():
@@ -703,3 +708,20 @@ def test_bash_option_completion_after_positional_path():
     completion = shtab.complete(parser, shell="bash")
     shell = Bash(completion + "\nCOMP_WORDS=(test . --w); COMP_CWORD=2; _shtab_test;")
     shell.test('"${COMPREPLY[*]}" = "--wdir"')
+
+
+@fix_shell
+def test_fallbacks(shell, test_parser):
+    completion = complete(test_parser, shell)
+    assert "hidden" not in completion
+    assert "delete something" not in completion, "expected description to override help"
+    if shell == 'zsh':
+        assert '"--exclude-from[exclude patterns file]:excl:_files"' in completion, (
+            "expected metavar: excl")
+        assert "create:'create something'" in completion
+        assert "delete:'myprog delete desc'" in completion
+        assert "list:'myprog list'" in completion
+    elif shell == 'fish':
+        assert "-a create -d 'create something'" in completion
+        assert "-a delete -d 'myprog delete desc'" in completion
+        assert "-a list -d 'myprog list'" in completion

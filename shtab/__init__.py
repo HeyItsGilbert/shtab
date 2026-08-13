@@ -5,6 +5,7 @@ from argparse import (ONE_OR_MORE, REMAINDER, SUPPRESS, ZERO_OR_MORE, Action, Ar
                       _AppendAction, _AppendConstAction, _CountAction, _HelpAction,
                       _StoreConstAction, _VersionAction)
 from collections import defaultdict
+from contextlib import contextmanager
 from functools import total_ordering
 from importlib.metadata import PackageNotFoundError, version
 from itertools import starmap
@@ -188,10 +189,18 @@ def wordify(string: str):
     return re.sub("\\W", "_", string)
 
 
-def get_public_subcommands(sub):
-    """Get all the publicly-visible subcommands for a given subparser."""
-    public_parsers = {id(sub.choices[i.dest]) for i in sub._get_subactions()}
-    return {k for k, v in sub.choices.items() if id(v) in public_parsers}
+def get_public_subcommands(sub) -> dict[str, str]:
+    """returns {'subcommand': "help text", ...} for a given subparser"""
+    public_parsers = {id(sub.choices[i.dest]): i.help for i in sub._get_subactions()}
+    # check SUPPRESS to be forward-compatible with python/cpython#67037
+    return {
+        k: h
+        for k, v in sub.choices.items() if (h := public_parsers.get(id(v), SUPPRESS)) != SUPPRESS}
+
+
+def is_subparser(positional):
+    return isinstance(positional.choices, dict) and positional._get_subactions() and all(
+        isinstance(v, ArgumentParser) for v in positional.choices.values())
 
 
 def get_bash_commands(root_parser, root_prefix, choice_functions=None):
@@ -233,7 +242,8 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
             elif positional.choices:
                 # choices (including subparsers & shtab `.complete` functions)
                 log.debug(f"choices:{prefix}:{sorted(positional.choices)}")
-
+                if is_subparser(positional):
+                    public_cmds = get_public_subcommands(positional)
                 this_positional_choices = []
                 for choice in positional.choices:
                     if isinstance(choice, Choice):
@@ -242,10 +252,9 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                         log.debug(f"Choice.{choice.type}:{prefix}:{positional.dest}")
                         compgens.append(f"{prefix}_pos_{i}_COMPGEN="
                                         f"{quote(choice_type2fn[choice.type])}")
-                    elif isinstance(positional.choices, dict):
+                    elif is_subparser(positional):
                         # subparser, so append to list of subparsers & recurse
                         log.debug("subcommand:%s", choice)
-                        public_cmds = get_public_subcommands(positional)
                         if choice in public_cmds:
                             discovered_subparsers.append(str(choice))
                             this_positional_choices.append(str(choice))
@@ -493,6 +502,27 @@ complete -o filenames -F ${root_prefix} ${prog}""").safe_substitute(
     )
 
 
+def head(string):
+    return str(string).strip().split("\n")[0] if string else ""
+
+
+@contextmanager
+def get_formatter(parser):
+    formatter = parser._get_formatter()
+    backup_width = formatter._width
+    try:
+        formatter._width = 999 # large number to effectively disable wrapping
+
+        def inner(str_or_parser):
+            return head(
+                formatter._format_text(str_or_parser if isinstance(str_or_parser, str) else
+                                       formatter._expand_help(str_or_parser)))
+
+        yield inner
+    finally:
+        formatter._width = backup_width
+
+
 def escape_zsh(string):
     """
     Backslash-escape for interpolation into a double-quoted `_arguments` spec.
@@ -500,7 +530,7 @@ def escape_zsh(string):
     NOTE: cannot use `shlex.quote` (a single-quoted word only valid at top level).
     """
     # excessive but safe
-    return re.sub(r"([^\w\s.,()-])", r"\\\1", str(string))
+    return head(re.sub(r"([^\w\s.,()-])", r"\\\1", str(string))) if string else ""
 
 
 @mark_completer("zsh")
@@ -527,41 +557,41 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
                 return choice_type2fn[first.type]
             return "({})".format(" ".join(map(str, arg.choices)))
 
-    def format_optional(opt, parser):
-        get_help = parser._get_formatter()._expand_help
+    def format_optional(opt, get_help):
         return (('{nargs}{options}"[{help}]"' if (isinstance(opt, FLAG_OPTION) or opt.nargs == 0)
                  else '{nargs}{options}"[{help}]:{dest}:{pattern}"').format(
                      nargs=('"(- : *)"' if (isinstance(opt, OPTION_END) or opt.nargs == REMAINDER)
                             else '"*"' if isinstance(opt, OPTION_MULTI) else ""),
                      options=("{{{}}}".format(",".join(opt.option_strings)) if len(
                          opt.option_strings) > 1 else '"{}"'.format("".join(opt.option_strings))),
-                     help=escape_zsh(get_help(opt)) if opt.help else "", dest=opt.dest,
-                     pattern=get_candidates(opt) or "").replace('""', ''))
+                     help=escape_zsh(get_help(opt) if opt.help else opt.metavar or opt.dest),
+                     dest=opt.metavar or opt.dest, pattern=get_candidates(opt)
+                     or "").replace('""', ''))
 
-    def format_positional(opt, parser):
-        get_help = parser._get_formatter()._expand_help
+    def format_positional(opt, get_help):
         return '"{nargs}:{help}:{pattern}"'.format(
             nargs={ONE_OR_MORE: "(*)", ZERO_OR_MORE: "(*):",
-                   REMAINDER: "(-)*:"}.get(opt.nargs, ""), help=escape_zsh(
-                       (get_help(opt) if opt.help else opt.dest).strip().split("\n")[0]),
+                   REMAINDER: "(-)*:"}.get(opt.nargs, ""),
+            help=escape_zsh(get_help(opt) if opt.help else opt.metavar or opt.dest),
             pattern=get_candidates(opt) or "")
 
     # {cmd: {"help": help, "arguments": [arguments]}}
-    all_commands = {
-        root_prefix: {
-            "cmd": prog, "arguments": [
-                format_optional(opt, parser)
-                for opt in parser._get_optional_actions() if opt.help != SUPPRESS] + [
-                    format_positional(opt, parser) for opt in parser._get_positional_actions()
-                    if opt.help != SUPPRESS and not isinstance(opt.choices, dict)],
-            "help": (parser.description
-                     or "").strip().split("\n")[0], "commands": [], "paths": []}}
+    with get_formatter(parser) as get_help:
+        all_commands = {
+            root_prefix: {
+                "cmd": prog, "arguments": [
+                    format_optional(opt, get_help)
+                    for opt in parser._get_optional_actions() if opt.help != SUPPRESS] + [
+                        format_positional(opt, get_help)
+                        for opt in parser._get_positional_actions()
+                        if opt.help != SUPPRESS and not is_subparser(opt)],
+                "help": head(parser.description), "commands": [], "paths": []}}
 
     def recurse(parser, prefix, paths=None):
         paths = paths or []
         subcmds = []
         for sub in parser._get_positional_actions():
-            if sub.help == SUPPRESS or not isinstance(sub.choices, dict):
+            if sub.help == SUPPRESS or not is_subparser(sub):
                 continue
             log.debug(f"subparser:choices:{prefix}:{sorted(sub.choices)}")
             public_cmds = get_public_subcommands(sub)
@@ -570,25 +600,21 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
                     log.debug("skip:subcommand:%s", cmd)
                     continue
                 log.debug("subcommand:%s", cmd)
-                # optionals
-                arguments = [
-                    format_optional(opt, parser) for opt in subparser._get_optional_actions()
-                    if opt.help != SUPPRESS]
-                # positionals
-                arguments.extend(
-                    format_positional(opt, parser) for opt in subparser._get_positional_actions()
-                    if not isinstance(opt.choices, dict) if opt.help != SUPPRESS)
-                # help text
-                formatter = subparser._get_formatter()
-                backup_width = formatter._width
-                formatter._width = 1234567 # large number to effectively disable wrapping
-                desc = formatter._format_text(subparser.description or "").strip()
-                formatter._width = backup_width
-
+                with get_formatter(subparser) as get_help:
+                    # optionals
+                    arguments = [
+                        format_optional(opt, get_help)
+                        for opt in subparser._get_optional_actions() if opt.help != SUPPRESS]
+                    # positionals
+                    arguments.extend(
+                        format_positional(opt, get_help)
+                        for opt in subparser._get_positional_actions()
+                        if opt.help != SUPPRESS and not is_subparser(opt))
+                    # help text
+                    desc = get_help(subparser.description or public_cmds[cmd])
                 new_pref = f"{prefix}_{wordify(cmd)}"
                 options = all_commands[new_pref] = {
-                    "cmd": cmd, "help": desc.split("\n")[0], "arguments": arguments,
-                    "paths": [*paths, cmd]}
+                    "cmd": cmd, "help": desc, "arguments": arguments, "paths": [*paths, cmd]}
                 new_subcmds = recurse(subparser, new_pref, [*paths, cmd])
                 options["commands"] = {
                     all_commands[pref]["cmd"]: all_commands[pref]
@@ -733,13 +759,16 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
     if choice_functions:
         choice_type2fn.update(choice_functions)
 
-    def get_specials(arg, arg_type, arg_sel):
+    def get_specials(arg, arg_type, arg_sel, check_subparser=False):
         if hasattr(arg, 'complete'):
             complete_fn = complete2pattern(arg.complete, 'tcsh', choice_type2fn, preambles)
             if complete_fn:
                 yield f"'{arg_type}/{arg_sel}/{complete_fn}/'"
         elif arg.choices:
-            choice_strs = ' '.join(map(str, arg.choices))
+            if check_subparser and is_subparser(arg):
+                choice_strs = ' '.join(get_public_subcommands(arg))
+            else:
+                choice_strs = ' '.join(map(str, arg.choices))
             yield f"'{arg_type}/{arg_sel}/({choice_strs})/'"
 
     def recurse_parser(cparser, positional_idx, requirements=None):
@@ -751,28 +780,34 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
             requirements = []
 
         for optional in cparser._get_optional_actions():
+            if optional.help == SUPPRESS:
+                continue
             log.debug("%s| Optional: %s", log_prefix, optional.dest)
-            if optional.help != SUPPRESS:
-                # Mingle all optional arguments for all subparsers
-                for optional_str in optional.option_strings:
-                    log.debug("%s| | %s", log_prefix, optional_str)
-                    if optional_str.startswith('--'):
-                        optionals_double.add(optional_str[2:])
-                    elif optional_str.startswith('-'):
-                        optionals_single.add(optional_str[1:])
-                    specials.extend(get_specials(optional, 'n', optional_str))
-                    if optional.nargs != 0:
-                        eq_specials.extend(get_specials(optional, 'c', optional_str + '='))
+            # Mingle all optional arguments for all subparsers
+            for optional_str in optional.option_strings:
+                log.debug("%s| | %s", log_prefix, optional_str)
+                if optional_str.startswith('--'):
+                    optionals_double.add(optional_str[2:])
+                elif optional_str.startswith('-'):
+                    optionals_single.add(optional_str[1:])
+                specials.extend(get_specials(optional, 'n', optional_str))
+                if optional.nargs != 0:
+                    eq_specials.extend(get_specials(optional, 'c', optional_str + '='))
 
         for positional in cparser._get_positional_actions():
-            if positional.help != SUPPRESS:
-                positional_idx += 1
-                log.debug("%s| Positional #%d: %s", log_prefix, positional_idx, positional.dest)
-                index_choices[positional_idx][tuple(requirements)] = positional
-                if isinstance(positional.choices, dict):
-                    for subcmd, subparser in positional.choices.items():
+            positional_idx += 1
+            if positional.help == SUPPRESS:
+                continue
+            log.debug("%s| Positional #%d: %s", log_prefix, positional_idx, positional.dest)
+            index_choices[positional_idx][tuple(requirements)] = positional
+            if is_subparser(positional):
+                public_cmds = get_public_subcommands(positional)
+                for subcmd, subparser in positional.choices.items():
+                    if subcmd in public_cmds:
                         log.debug("%s| | SubParser: %s", log_prefix, subcmd)
                         recurse_parser(subparser, positional_idx, requirements + [subcmd])
+                    else:
+                        log.debug("%s| | SubParser skip: %s", log_prefix, subcmd)
 
     recurse_parser(parser, 0)
 
@@ -780,7 +815,7 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
         if len(ndict) == 1:
             # Single choice, no requirements
             arg = next(iter(ndict.values()))
-            specials.extend(get_specials(arg, 'p', str(idx)))
+            specials.extend(get_specials(arg, 'p', str(idx), True))
         else:
             # Multiple requirements
             nlist = []
@@ -827,16 +862,15 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
 ${preamble}
 
 complete ${prog} \\
-        ${optionals_eq_str}'c/--/(${optionals_double_str})/' \\
-        'c/-/(${optionals_single_str})/' \\
-        ${optionals_special_str} \\
+        ${optionals_eq}'c/--/(${optionals_double})/' \\
+        'c/-/(${optionals_single})/' \\
+        ${optionals_special} \\
         'p/*/()/'""").safe_substitute(
         preamble=f"\n# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
-        root_prefix=root_prefix, prog=parser.prog,
-        optionals_double_str=' '.join(sorted(optionals_double)),
-        optionals_single_str=' '.join(sorted(optionals_single)),
-        optionals_eq_str=''.join(f'{eq} \\\n        ' for eq in eq_specials),
-        optionals_special_str=' \\\n        '.join(specials))
+        prog=parser.prog, optionals_double=' '.join(sorted(optionals_double)),
+        optionals_single=' '.join(sorted(optionals_single)),
+        optionals_eq=''.join(f'{eq} \\\n        ' for eq in eq_specials),
+        optionals_special=' \\\n        '.join(specials))
 
 
 @mark_completer("fish")
@@ -884,7 +918,6 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
         """
         log_prefix = "| " * len(path)
         log.debug("%sParser @ %d", log_prefix, len(path))
-        get_help = cparser._get_formatter()._expand_help
         for optional in cparser._get_optional_actions():
             log.debug("%s| Optional: %s", log_prefix, optional.dest)
             if optional.help == SUPPRESS:
@@ -900,8 +933,11 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 opts_with_value.update(optional.option_strings)
                 candidates = get_candidates(optional)
                 output.append(f'-xka "{candidates}"' if candidates else "-x")
-            if optional.help:
-                output.append(f'-d {quote(get_help(optional))}')
+            with get_formatter(cparser) as get_help:
+                if desc := head(
+                        get_help(optional) if optional.help else optional.metavar or optional.dest
+                ):
+                    output.append(f'-d {quote(desc)}')
             completions.append(' '.join(output))
 
         index = 0          # the next positional slot (number of preceding positional arguments)
@@ -911,31 +947,23 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
             if positional.help == SUPPRESS:
                 continue
             log.debug("%s| Positional #%d: %s", log_prefix, index, positional.dest)
-            if isinstance(positional.choices, dict):
-                # positional subcommand
-                public = get_public_subcommands(positional)
+            if is_subparser(positional):
+                public_cmds = get_public_subcommands(positional)
                 pos_test = pos_condition(index, 1, open_ended)
-                # fallback to `add_parser(help)` when missing subparser(description);
-                # keyed by id() to cover aliases
-                subcmd_help = {
-                    id(positional.choices[i.dest]): i.help
-                    for i in positional._get_subactions()  # type: ignore[attr-defined]
-                    if i.dest in positional.choices}
-
-                for subcmd, subparser in positional.choices.items():
-                    if subcmd not in public:
+                for subcmd, subparser in positional.choices.items(): # type: ignore[union-attr]
+                    if subcmd not in public_cmds:
                         continue
                     log.debug("%s| | SubParser: %s", log_prefix, subcmd)
                     commands.append(" ".join(path + [subcmd]))
                     output = start_output(path, pos_test)
                     output.append(f"-a {quote(subcmd)}")
-                    desc = subparser.description or subcmd_help.get(id(subparser)) or ""
-                    desc = desc.strip().split("\n")[0]
-                    if desc:
-                        output.append(f'-d {quote(desc)}')
+                    with get_formatter(subparser) as get_help:
+                        if desc := get_help(subparser.description or public_cmds[subcmd]):
+                            output.append(f'-d {quote(desc)}')
                     completions.append(' '.join(output))
                     recurse_parser(subparser, path + [subcmd])
                 index += 1
+
             else:
                 # simple argument (file, name...)
                 width = (positional.nargs if isinstance(positional.nargs, int) else
@@ -944,9 +972,11 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                 if candidates:
                     output = start_output(path, pos_condition(index, width, open_ended))
                     output.append(f'-ka "{candidates}"')
-                    if positional.help:
-                        desc = get_help(positional).strip().split("\n")[0]
-                        output.append(f'-d {quote(desc)}')
+                    with get_formatter(cparser) as get_help:
+                        if desc := head(
+                                get_help(positional) if positional.
+                                help else positional.metavar or positional.dest):
+                            output.append(f'-d {quote(desc)}')
                     completions.append(' '.join(output))
                 if width is None:
                     open_ended = True
