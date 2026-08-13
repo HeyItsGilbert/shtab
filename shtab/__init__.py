@@ -11,6 +11,7 @@ from importlib.metadata import PackageNotFoundError, version
 from itertools import starmap
 from shlex import join, quote
 from string import Template
+from textwrap import dedent
 from typing import Any, Callable
 from typing import Optional as Opt
 from typing import Union
@@ -28,11 +29,18 @@ CompleteType = dict[ShellType, Union[str, dict[ShellType, str]]]
 SUPPORTED_SHELLS: list[ShellType] = []
 _SUPPORTED_COMPLETERS: dict[ShellType, Callable] = {}
 CHOICE_FUNCTIONS: dict[str, CompleteType] = {
-    "file": {
-        "bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f",
-        "fish": "(__fish_complete_path (commandline -ct))"}, "directory": {
-            "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
-            "fish": "(__fish_complete_directories)"}}
+  "file": {
+    "bash": "_shtab_compgen_files",
+    "zsh": "_files",
+    "tcsh": "f",
+    "fish": "(__fish_complete_path (commandline -ct))",
+  },
+  "directory": {
+    "bash": "_shtab_compgen_dirs",
+    "zsh": "_files -/",
+    "tcsh": "d",
+    "fish": "(__fish_complete_directories)",
+  }} # yapf: disable
 FILE = CHOICE_FUNCTIONS["file"]
 DIRECTORY = DIR = CHOICE_FUNCTIONS["directory"]
 FLAG_OPTION = (
@@ -58,26 +66,30 @@ def glob(*patterns: str) -> CompleteType:
     - any directory: `shtab.DIRECTORY` (instead of `glob("*/")`)
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{sha(patterns)}",
-        "zsh": f"_files -g '({'|'.join(patterns)})'", "tcsh": f"f:{{{','.join(patterns)}}}",
-        "fish": f"(_shtab_pattern_compgen_{sha(patterns)})", "preamble": {
-            "bash": f"""
-# $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{sha(patterns)}() {{
-  for ext in {join(patterns)}; do
-    compgen -f -X "!$ext" -- $1
-  done
-  compgen -d -- $1  # recurse into subdirs
-}}
-""", "fish": f"""
-function _shtab_pattern_compgen_{sha(patterns)}
-  set comp (commandline -ct)
-  for pattern in {join(patterns)}
-    __fish_complete_path "$comp" | string match -e -- "$pattern"
-  end
-  __fish_complete_path "$comp" | string match -e "*/"  # recurse into subdirs
-end
-"""}}
+      "bash": f"_shtab_pattern_compgen_{sha(patterns)}",
+      "zsh": f"_files -g '({'|'.join(patterns)})'",
+      "tcsh": f"f:{{{','.join(patterns)}}}",
+      "fish": f"(_shtab_pattern_compgen_{sha(patterns)})",
+      "preamble": {
+        "bash": dedent(f"""
+          # $1=COMP_WORDS[1]
+          _shtab_pattern_compgen_{sha(patterns)}() {{
+            for ext in {join(patterns)}; do
+              compgen -f -X "!$ext" -- $1
+            done
+            compgen -d -- $1  # recurse into subdirs
+          }}
+          """),
+        "fish": dedent(f"""
+          function _shtab_pattern_compgen_{sha(patterns)}
+            set comp (commandline -ct)
+            for pattern in {join(patterns)}
+              __fish_complete_path "$comp" | string match -e -- "$pattern"
+            end
+            __fish_complete_path "$comp" | string match -e "*/"  # recurse into subdirs
+          end
+          """),
+        }} # yapf: disable
 
 
 def cmd(command: str) -> CompleteType:
@@ -88,14 +100,18 @@ def cmd(command: str) -> CompleteType:
     Example: `cmd("git branch")`
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{sha(command)}", "zsh": f"($({command}))",
-        "tcsh": f"`{command}`", "fish": f"({command})", "preamble": {
-            "bash": f"""
-# $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{sha(command)}() {{
-  compgen -W "$({command})" -- $1
-}}
-"""}}
+      "bash": f"_shtab_pattern_compgen_{sha(command)}",
+      "zsh": f"($({command}))",
+      "tcsh": f"`{command}`",
+      "fish": f"({command})",
+      "preamble": {
+        "bash": dedent(f"""
+          # $1=COMP_WORDS[1]
+          _shtab_pattern_compgen_{sha(command)}() {{
+            compgen -W "$({command})" -- $1
+          }}
+          """),
+      }} # yapf: disable
 
 
 class _ShtabPrintCompletionAction(Action):
@@ -332,8 +348,7 @@ def complete_bash(parser, root_prefix=None, preamble="", choice_functions=None):
         parser, root_prefix, choice_functions=choice_functions)
     preamble = "\n".join(list(dict.fromkeys(([preamble] if preamble else []) + extra_preambles)))
     # References:
-    # - https://www.gnu.org/software/bash/manual/html_node/
-    #   Programmable-Completion.html
+    # - https://www.gnu.org/software/bash/manual/html_node/Programmable-Completion.html
     # - https://opensource.com/article/18/3/creating-bash-completion-script
     # - https://stackoverflow.com/questions/12933362
     return Template("""\
@@ -375,7 +390,7 @@ _set_parser_defaults() {
 
   completed_positional_actions=0
 
-  _set_new_action "pos_${completed_positional_actions}" true
+  _set_new_action "pos_$completed_positional_actions" true
 }
 
 # $1=action identifier
@@ -435,13 +450,13 @@ ${root_prefix}() {
     local this_word="${COMP_WORDS[$word_index]}"
 
     if [[ $pos_only = 1 || " $this_word " != " -- " ]]; then
-      if [[ -n $sub_parsers && " ${sub_parsers[@]} " == *" ${this_word} "* ]]; then
+      if [[ -n $sub_parsers && " ${sub_parsers[@]} " == *" $this_word "* ]]; then
         # valid subcommand: add it to the prefix & reset the current action
         prefix="${prefix}_$(_shtab_replace_nonword $this_word)"
         _set_parser_defaults
       fi
 
-      if [[ " ${current_option_strings[@]} " == *" ${this_word} "* ]]; then
+      if [[ " ${current_option_strings[@]} " == *" $this_word "* ]]; then
         # a new action should be acquired (due to recognised option string or
         # no more input expected from current action);
         # the next positional action can fill in here
@@ -455,7 +470,7 @@ ${root_prefix}() {
          (( $word_index + 1 - $current_action_args_start_index - $pos_only >= \\
             $current_action_nargs )); then
         $current_action_is_positional && let "completed_positional_actions += 1"
-        _set_new_action "pos_${completed_positional_actions}" true
+        _set_new_action "pos_$completed_positional_actions" true
       fi
     else
       pos_only=1 # "--" delimiter encountered
@@ -467,24 +482,24 @@ ${root_prefix}() {
   # Generate the completions
 
   COMPREPLY=()
-  if [[ $pos_only = 0 && "${completing_word}" == -* &&
-        ( -z "${current_action_compgen}" || "$current_action_is_positional" = true ) ]]; then
+  if [[ $pos_only = 0 && "$completing_word" == -* &&
+        ( -z "$current_action_compgen" || "$current_action_is_positional" = true ) ]]; then
     # optional argument started: use option strings
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
-      compgen -W "${current_option_strings[*]}" -- "${completing_word}")
-  elif [[ "${previous_word}" =~ ^[0-9\\&]*[\\<\\>]\\>?$ ]]; then
+      compgen -W "${current_option_strings[*]}" -- "$completing_word")
+  elif [[ "$previous_word" =~ ^[0-9\\&]*[\\<\\>]\\>?$ ]]; then
     # handle redirection operators
-    while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
+    while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "$completing_word")
   else
     # use choices & compgen
-    local action_compgen_word="${completing_word}"
+    local action_compgen_word="$completing_word"
     # handle tab-completing in the middle of a line (#248 <- #116)
-    [[ -n "${current_action_compgen}" && "${completing_word}" == -* ]] && action_compgen_word=""
-    [ -n "${current_action_compgen}" ] &&
+    [[ -n "$current_action_compgen" && "$completing_word" == -* ]] && action_compgen_word=""
+    [ -n "$current_action_compgen" ] &&
       while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
-        "${current_action_compgen}" "${action_compgen_word}")
+        "$current_action_compgen" "$action_compgen_word")
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
-      compgen -W "${current_action_choices[*]}" -- "${completing_word}")
+      compgen -W "${current_action_choices[*]}" -- "$completing_word")
   fi
 
   return 0
@@ -648,33 +663,33 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
                            prefix=prefix))
         cases = "\n\t".expandtabs(8).join(cases)
 
-        return f"""\
-{prefix}() {{
+        return Template("""\
+${prefix}() {
   local context state line \
-curcontext="$curcontext" one_or_more='(*)' remainder='(-)*:' default='*::: :->{name}'
+curcontext="$curcontext" one_or_more='(*)' remainder='(-)*:' default='*::: :->${name}'
 
   # Add default positional/remainder specs only if none exist, and only once per session
-  if (( ! {prefix}_defaults_added )); then
-    if (( ${{{prefix}_options[(I)${{(q)one_or_more}}*]}} +\
-          ${{{prefix}_options[(I)${{(q)remainder}}*]}} +\
-          ${{{prefix}_options[(I)${{(q)default}}]}} == 0 )); then
-      {prefix}_options+=(': :{prefix}_commands' '*::: :->{name}')
+  if (( ! ${prefix}_defaults_added )); then
+    if (( ${${prefix}_options[(I)${(q)one_or_more}*]} +\
+          ${${prefix}_options[(I)${(q)remainder}*]} +\
+          ${${prefix}_options[(I)${(q)default}]} == 0 )); then
+      ${prefix}_options+=(': :${prefix}_commands' '*::: :->${name}')
     fi
-    {prefix}_defaults_added=1
+    ${prefix}_defaults_added=1
   fi
-  _arguments -C -s ${prefix}_options
+  _arguments -C -s $$${prefix}_options
 
   case $state in
-    {name})
-      words=($line[1] "${{words[@]}}")
+    ${name})
+      words=($line[1] "${words[@]}")
       (( CURRENT += 1 ))
-      curcontext="${{curcontext%:*:*}}:{prefix}-$line[1]:"
+      curcontext="${curcontext%:*:*}:${prefix}-$line[1]:"
       case $line[1] in
-        {cases}
+        ${cases}
       esac
   esac
-}}
-"""
+}
+""").safe_substitute(name=name, prefix=prefix, cases=cases)
 
     def command_option(prefix, options):
         arguments = "\n  ".join(options["arguments"])
@@ -701,11 +716,10 @@ curcontext="$curcontext" one_or_more='(*)' remainder='(-)*:' default='*::: :->{n
 
     preamble = "\n".join(list(dict.fromkeys(preambles)))
     # References:
-    #   - https://github.com/zsh-users/zsh-completions
-    #   - http://zsh.sourceforge.net/Doc/Release/Completion-System.html
-    #   - https://mads-hartmann.com/2017/08/06/
-    #     writing-zsh-completion-scripts.html
-    #   - http://www.linux-mag.com/id/1106/
+    # - https://github.com/zsh-users/zsh-completions
+    # - http://zsh.sourceforge.net/Doc/Release/Completion-System.html
+    # - https://mads-hartmann.com/2017/08/06/writing-zsh-completion-scripts.html
+    # - http://www.linux-mag.com/id/1106/
     return Template("""\
 #compdef ${prog}
 
@@ -1000,27 +1014,27 @@ function ${prefix}_scan
   set -l tokens (commandline -opc)
   set -e tokens[1]
   set -l expect_value 0
-  for t in $$tokens
-    if test $$expect_value -eq 1
+  for t in $tokens
+    if test $expect_value -eq 1
       set expect_value 0
       continue
     end
-    switch "$$t"
+    switch "$t"
       case '--*=*'
         continue
       case '-*'
-        if contains -- $$t $$${prefix}_opts_with_value
+        if contains -- $t $$${prefix}_opts_with_value
           set expect_value 1
         end
         continue
       case '*'
         if test $$${prefix}_npos -eq 0
-          set -l candidate $$t
+          set -l candidate $t
           if test -n "$$${prefix}_cmdpath"
-            set candidate "$$${prefix}_cmdpath $$t"
+            set candidate "$$${prefix}_cmdpath $t"
           end
-          if contains -- $$candidate $$${prefix}_commands
-            set -g ${prefix}_cmdpath $$candidate
+          if contains -- $candidate $$${prefix}_commands
+            set -g ${prefix}_cmdpath $candidate
             continue
           end
         end
@@ -1032,7 +1046,7 @@ end
 # Condition helper: true if the current (sub)command path equals the given one.
 function ${prefix}_using
   ${prefix}_scan
-  test "$$${prefix}_cmdpath" = "$$argv"
+  test "$$${prefix}_cmdpath" = "$argv"
 end
 
 set -g ${prefix}_commands ${commands}
