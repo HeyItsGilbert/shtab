@@ -498,6 +498,7 @@ def bash_candidates(completion, cmdlines, cwd):
     Reason: readline's post-processing (e.g. `-o filenames` appending `/` to dirs)
     happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
     """
+    pty = pytest.importorskip('pty')
     if not shutil.which('bash'):
         pytest.skip("bash not available")
     script = cwd / "completion.bash"
@@ -571,6 +572,20 @@ def test_bash_dir_collision(change_dir, test_parser):
         "myprog create ",              # choices should take priority over dirs
         "myprog create alpha subdir/", # dirs should still have trailing `/`
     ]
+
+
+def test_powershell_single_token_completion(test_parser, change_dir):
+    """
+    A single typed token must stay a 1-element array, not scalar-collapse (#212).
+
+    `$commandAst.CommandElements[1..] | ForEach-Object {...}` unwraps to a bare string
+    when there is exactly one token, silently breaking `$allTokens[-1]`/`.Count` and (for
+    the literal token `--`) wrongly forcing `$posOnly`, which suppressed all option/
+    subcommand completions.
+    """
+    completion = complete(test_parser, 'powershell')
+    assert powershell_candidates(completion, "myprog --", change_dir) == ["--help", "--repo"]
+    assert powershell_candidates(completion, "myprog c", change_dir) == ["create"]
 
 
 def test_fish_global_option_value(test_parser):
