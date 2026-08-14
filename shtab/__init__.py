@@ -1306,8 +1306,8 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
   # Tokenize the command line (skip program name)
   $allTokens = @()
   if ($commandAst.CommandElements.Count -gt 1) {
-    $allTokens = $commandAst.CommandElements[1..($commandAst.CommandElements.Count - 1)] |
-      ForEach-Object { $_.ToString() }
+    $allTokens = @($commandAst.CommandElements[1..($commandAst.CommandElements.Count - 1)] |
+      ForEach-Object { $_.ToString() })
   }
 
   # Determine which tokens are "completed" (before the word being typed)
