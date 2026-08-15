@@ -106,8 +106,9 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 
     ```powershell
     shtab --shell=powershell shtab.main.get_main_parser --error-unimportable `
-      | Out-File -FilePath ~\shtab_completion.ps1
-    . ~\shtab_completion.ps1
+      | Out-File -FilePath ~\.config\powershell\completions\shtab.ps1
+    # Add to $PROFILE:
+    . ~\.config\powershell\completions\shtab.ps1
     ```
 
     Eager:
@@ -123,9 +124,9 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 
     ```powershell
     shtab --shell=powershell shtab.main.get_main_parser `
-      | Out-File -FilePath ~\shtab_completion.ps1
+      | Out-File -FilePath ~\.config\powershell\completions\shtab.ps1
     # Add to $PROFILE:
-    . ~\shtab_completion.ps1
+    . ~\.config\powershell\completions\shtab.ps1
     ```
 
 Any existing `argparse`-based scripts should be supported with minimal effort.
@@ -181,8 +182,8 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
 
     ```powershell
     shtab --shell=powershell -u MY_PROG.command.main.get_main_parser `
-      | Out-File -FilePath ~\MY_PROG_completion.ps1
-    . ~\MY_PROG_completion.ps1
+      | Out-File -FilePath ~\.config\powershell\completions\MY_PROG.ps1
+    . ~\.config\powershell\completions\MY_PROG.ps1
     ```
 
 ## Library Usage

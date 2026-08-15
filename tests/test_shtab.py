@@ -481,9 +481,9 @@ def test_file_completion(shell, change_dir, test_parser):
         (change_dir / "subdir").mkdir()
         (change_dir / "subdir" / "nested.txt").touch()
         assert powershell_candidates(completion, "myprog create alpha subdir/nes",
-                                     change_dir) == [f"subdir{os.sep}nested.txt"]
+                                     change_dir) == ["subdir/nested.txt"]
         assert powershell_candidates(completion, "myprog create alpha subdir/",
-                                     change_dir) == [f"subdir{os.sep}nested.txt"]
+                                     change_dir) == ["subdir/nested.txt"]
         absolute = change_dir / "subdir" / "nes"
         candidates = powershell_candidates(completion, f"myprog create --exclude-from {absolute}",
                                            change_dir)
@@ -576,15 +576,7 @@ def test_bash_dir_collision(change_dir, test_parser):
     ]
 
 
-def test_powershell_single_token_completion(test_parser, change_dir):
-    """
-    A single typed token must stay a 1-element array, not scalar-collapse (#212).
-
-    `$commandAst.CommandElements[1..] | ForEach-Object {...}` unwraps to a bare string
-    when there is exactly one token, silently breaking `$allTokens[-1]`/`.Count` and (for
-    the literal token `--`) wrongly forcing `$posOnly`, which suppressed all option/
-    subcommand completions.
-    """
+def test_powershell_single_token(test_parser, change_dir):
     completion = complete(test_parser, 'powershell')
     assert powershell_candidates(completion, "myprog --", change_dir) == ["--help", "--repo"]
     assert powershell_candidates(completion, "myprog c", change_dir) == ["create"]
