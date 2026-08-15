@@ -29,18 +29,18 @@ CompleteType = dict[ShellType, Union[str, dict[ShellType, str]]]
 SUPPORTED_SHELLS: list[ShellType] = []
 _SUPPORTED_COMPLETERS: dict[ShellType, Callable] = {}
 CHOICE_FUNCTIONS: dict[str, CompleteType] = {
-  "file": {
-    "bash": "_shtab_compgen_files",
-    "zsh": "_files",
-    "tcsh": "f",
-    "fish": "(__fish_complete_path (commandline -ct))",
-  },
-  "directory": {
-    "bash": "_shtab_compgen_dirs",
-    "zsh": "_files -/",
-    "tcsh": "d",
-    "fish": "(__fish_complete_directories)",
-  }} # yapf: disable
+    "file": {
+        "bash": "_shtab_compgen_files",
+        "zsh": "_files",
+        "tcsh": "f",
+        "fish": "(__fish_complete_path (commandline -ct))",
+    },
+    "directory": {
+        "bash": "_shtab_compgen_dirs",
+        "zsh": "_files -/",
+        "tcsh": "d",
+        "fish": "(__fish_complete_directories)",
+    }} # yapf: disable
 FILE = CHOICE_FUNCTIONS["file"]
 DIRECTORY = DIR = CHOICE_FUNCTIONS["directory"]
 FLAG_OPTION = (
@@ -66,29 +66,29 @@ def glob(*patterns: str) -> CompleteType:
     - any directory: `shtab.DIRECTORY` (instead of `glob("*/")`)
     """
     return {
-      "bash": f"_shtab_glob_compgen_{sha(patterns)}",
-      "zsh": f"_files -g '({'|'.join(patterns)})'",
-      "tcsh": f"f:{{{','.join(patterns)}}}",
-      "fish": f"(_shtab_glob_compgen_{sha(patterns)})",
-      "preamble": {
-        "bash": dedent(f"""
-          # $1=COMP_WORDS[1]
-          _shtab_glob_compgen_{sha(patterns)}() {{
-            for ext in {join(patterns)}; do
-              compgen -f -X "!$ext" -- $1
-            done
-            compgen -d -- $1  # recurse into subdirs
-          }}
-          """),
-        "fish": dedent(f"""
-          function _shtab_glob_compgen_{sha(patterns)}
-            set comp (commandline -ct)
-            for pattern in {join(patterns)}
-              __fish_complete_path "$comp" | string match -e -- "$pattern"
-            end
-            __fish_complete_path "$comp" | string match -e "*/"  # recurse into subdirs
-          end
-          """),
+        "bash": f"_shtab_glob_compgen_{sha(patterns)}",
+        "zsh": f"_files -g '({'|'.join(patterns)})'",
+        "tcsh": f"f:{{{','.join(patterns)}}}",
+        "fish": f"(_shtab_glob_compgen_{sha(patterns)})",
+        "preamble": {
+            "bash": dedent(f"""
+              # $1=COMP_WORDS[1]
+              _shtab_glob_compgen_{sha(patterns)}() {{
+                for ext in {join(patterns)}; do
+                  compgen -f -X "!$ext" -- $1
+                done
+                compgen -d -- $1  # recurse into subdirs
+              }}
+              """),
+            "fish": dedent(f"""
+              function _shtab_glob_compgen_{sha(patterns)}
+                set comp (commandline -ct)
+                for pattern in {join(patterns)}
+                  __fish_complete_path "$comp" | string match -e -- "$pattern"
+                end
+                __fish_complete_path "$comp" | string match -e "*/"  # recurse into subdirs
+              end
+              """),
         }} # yapf: disable
 
 
@@ -100,18 +100,17 @@ def cmd(command: str) -> CompleteType:
     Example: `cmd("git branch")`
     """
     return {
-      "bash": f"_shtab_cmd_compgen_{sha(command)}",
-      "zsh": f"($({command}))",
-      "tcsh": f"`{command}`",
-      "fish": f"({command})",
-      "preamble": {
-        "bash": dedent(f"""
-          # $1=COMP_WORDS[1]
-          _shtab_cmd_compgen_{sha(command)}() {{
-            compgen -W "$({command})" -- $1
-          }}
-          """),
-      }} # yapf: disable
+        "bash": f"_shtab_cmd_compgen_{sha(command)}",
+        "zsh": f"($({command}))",
+        "tcsh": f"`{command}`",
+        "fish": f"({command})",
+        "preamble": {
+            "bash": dedent(f"""
+              # $1=COMP_WORDS[1]
+              _shtab_cmd_compgen_{sha(command)}() {{
+                compgen -W "$({command})" -- $1
+              }}"""),
+        }} # yapf: disable
 
 
 class _ShtabPrintCompletionAction(Action):
