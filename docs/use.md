@@ -52,8 +52,8 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 
 === "zsh"
 
-    Note that `zsh` requires completion script files to be named `_{EXECUTABLE}`
-    (with an underscore prefix).
+    !!! info
+        `zsh` requires completion script files to be named `_{EXECUTABLE}` (with an underscore prefix).
 
     ```sh
     # note the underscore `_` prefix
@@ -105,10 +105,16 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
 
 === "powershell"
 
+    !!! info
+        PowerShell 7+ (`pwsh`) is fully supported, while
+        Windows PowerShell 5 (`powershell.exe`) is only partially supported.
+
     ```powershell
+    New-Item -Path ~\.config\powershell\completions -ItemType Directory -Force
     shtab --shell=powershell shtab.main.get_main_parser --error-unimportable `
-      | Out-File -FilePath ~\shtab_completion.ps1
-    . ~\shtab_completion.ps1
+      | Out-File -FilePath ~\.config\powershell\completions\shtab.ps1
+    # Add to $PROFILE:
+    . ~\.config\powershell\completions\shtab.ps1
     ```
 
     Eager:
@@ -123,10 +129,11 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
     Or save to a file and dot-source it from your profile:
 
     ```powershell
+    New-Item -Path ~\.config\powershell\completions -ItemType Directory -Force
     shtab --shell=powershell shtab.main.get_main_parser `
-      | Out-File -FilePath ~\shtab_completion.ps1
+      | Out-File -FilePath ~\.config\powershell\completions\shtab.ps1
     # Add to $PROFILE:
-    . ~\shtab_completion.ps1
+    . ~\.config\powershell\completions\shtab.ps1
     ```
 
 ### argparse
@@ -184,9 +191,10 @@ Assuming this code example is installed in `MY_PROG.cli`, simply run:
 === "powershell"
 
     ```powershell
+    New-Item -Path ~\.config\powershell\completions -ItemType Directory -Force
     shtab --shell=powershell -u MY_PROG.cli.get_main_parser `
-      | Out-File -FilePath ~\MY-PROG_completion.ps1
-    . ~\MY-PROG_completion.ps1
+      | Out-File -FilePath ~\.config\powershell\completions\MY-PROG.ps1
+    . ~\.config\powershell\completions\MY-PROG.ps1
     ```
 
 ### click
