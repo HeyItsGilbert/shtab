@@ -126,12 +126,13 @@ def test_prog_scripts(shell, capsys):
 
     captured = capsys.readouterr()
     assert not captured.err
-    script_py = [i.strip() for i in captured.out.splitlines() if "script.py" in i]
+    script_py = [i.strip() for i in captured.out.splitlines() if "script.py" in i and i[0] != '#']
     if shell == 'bash':
         assert script_py == ["complete -F _shtab_shtab script.py"]
     elif shell == 'zsh':
+        assert captured.out.startswith("#compdef script.py")
         assert script_py == [
-            "#compdef script.py", "_describe 'script.py commands' _commands",
+            "_describe 'script.py commands' _commands",
             'local context state line curcontext="$curcontext" '
             "one_or_more='(*)' remainder='(-)*:' default='*::: :->script.py'",
             "_shtab_shtab_options+=(': :_shtab_shtab_commands' '*::: :->script.py')", "script.py)",
