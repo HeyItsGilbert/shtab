@@ -87,7 +87,7 @@ def test_main_self_completion(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        'bash': "complete -o filenames -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
         'tcsh': "complete shtab", 'fish': "complete -c shtab"}
     assert expected[shell] in captured.out
 
@@ -100,7 +100,7 @@ def test_main_output_path(shell, capsys, change_dir, output):
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        'bash': "complete -o filenames -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
         'tcsh': "complete shtab", 'fish': "complete -c shtab"}
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
@@ -115,7 +115,7 @@ def test_prog_override(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     if shell == 'bash':
-        assert "complete -o filenames -F _shtab_shtab foo" in captured.out
+        assert "complete -F _shtab_shtab foo" in captured.out
     else:
         pytest.skip("WiP")
 
@@ -128,7 +128,7 @@ def test_prog_scripts(shell, capsys):
     assert not captured.err
     script_py = [i.strip() for i in captured.out.splitlines() if "script.py" in i]
     if shell == 'bash':
-        assert script_py == ["complete -o filenames -F _shtab_shtab script.py"]
+        assert script_py == ["complete -F _shtab_shtab script.py"]
     elif shell == 'zsh':
         assert script_py == [
             "#compdef script.py", "_describe 'script.py commands' _commands",
@@ -331,18 +331,15 @@ def fish_candidates(completion, cmdline):
 
 def tcsh_candidates(completion, cmdlines, cwd):
     """
-    Return the completion candidates tcsh offers for each of `cmdlines`.
+    Return pty-driven completion candidates for each of `cmdlines`.
 
-    tcsh has no `complete -C` equivalent, so drive an interactive one through a pty.
+    Reason: tcsh has no `complete -C` equivalent.
     """
     if not shutil.which('tcsh'):
         pytest.skip("tcsh not available")
     script = cwd / "completion.tcsh"
     script.write_text(completion)
     prompt = "|candidates|"
-    # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
-    set_prompt = f'set prompt="{prompt[:6]}""{prompt[6:]}"'
-
     pid, fd = pty.fork()
     if pid == 0:   # child
         os.chdir(cwd)
@@ -351,11 +348,14 @@ def tcsh_candidates(completion, cmdlines, cwd):
         os.execvp('tcsh', ['tcsh', '-f', '-i'])
     output = ""
 
-    def read(prompts, timeout=10.0):
-        """Read until the prompt has been seen `prompts` times (or `timeout` elapses)."""
+    def clean(chunk):
+        return re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+
+    def read(num_prompts, timeout=10.0):
+        """read until `timeout` elapses or `num_prompts` seen, then drain"""
         nonlocal output
         deadline = time.time() + timeout
-        while output.count(prompt) < prompts and time.time() < deadline:
+        while output.count(prompt) < num_prompts and time.time() < deadline:
             if select.select([fd], [], [], 0.1)[0]:
                 try:
                     chunk = os.read(fd, 1 << 16)
@@ -363,17 +363,18 @@ def tcsh_candidates(completion, cmdlines, cwd):
                     break
                 if not chunk:
                     break
-                output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
-                                 chunk.decode('utf-8', 'replace'))
+                output += clean(chunk)
         # a command just finished, give tcsh a moment to enable its line editor again
         while select.select([fd], [], [], 0.2)[0]:
-            output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
-                             os.read(fd, 1 << 16).decode('utf-8', 'replace'))
+            output += clean(os.read(fd, 1 << 16))
         return output
 
     candidates = []
     try:
-        os.write(fd, f"set autolist\nsource {script}\n{set_prompt}\n".encode())
+        # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
+        os.write(
+            fd,
+            f'set autolist\nsource {script}\nset prompt="{prompt[:1]}""{prompt[1:]}"\n'.encode())
         read(1)
         for cmdline in cmdlines:
             seen = len(output)
@@ -442,6 +443,88 @@ def test_file_completion(shell, change_dir, test_parser):
         assert len(candidates) == 1
     else:
         raise NotImplementedError(completion)
+
+
+def bash_candidates(completion, cmdlines, cwd):
+    """
+    Return pty-driven completion candidates for each of `cmdlines`.
+
+    Reason: readline's post-processing (e.g. `-o filenames` appending `/` to dirs)
+    happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
+    """
+    if not shutil.which('bash'):
+        pytest.skip("bash not available")
+    script = cwd / "completion.bash"
+    script.write_text(completion)
+    prompt = "|candidates|"
+    pid, fd = pty.fork()
+    if pid == 0:   # child
+        os.chdir(cwd)
+        os.environ['TERM'] = 'dumb'
+        os.environ['COLUMNS'] = '999'
+        os.execvp('bash', ['bash', '--norc', '--noprofile', '-i'])
+    output = ""
+
+    def clean(chunk):
+        return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+
+    def read(condition, timeout=10.0):
+        """read until `timeout` elapses or `condition()`, then drain"""
+        nonlocal output
+        deadline = time.time() + timeout
+        while not condition() and time.time() < deadline:
+            if select.select([fd], [], [], 0.1)[0]:
+                try:
+                    chunk = os.read(fd, 1 << 16)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                output += clean(chunk)
+        while select.select([fd], [], [], 0.3)[0]:
+            try:
+                chunk = os.read(fd, 1 << 16)
+            except OSError:
+                break
+            if not chunk:
+                break
+            output += clean(chunk)
+
+    candidates = []
+    try:
+        os.write(fd, f"source {script}; PS1='{prompt}'\n".encode())
+        read(lambda: output.count(prompt) >= 1)
+        for cmdline in cmdlines:
+            seen = len(output)
+            os.write(fd, cmdline.encode() + b"\t")
+            # the typed line is echoed back, followed by whatever readline inserted
+            read(lambda cmdline=cmdline, seen=seen: cmdline in output[seen:])
+            candidates.append(output[seen:])
+        os.write(fd, b"\x15exit\n") # discard the line & quit
+        read(lambda: True)
+    finally:
+        os.close(fd)
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+    return candidates
+
+
+def test_bash_dir_collision(change_dir, test_parser):
+    """Subcommands matching a dir name must not gain a trailing slash"""
+    try:
+        subprocess.check_call(['bash', '-c', 'type compopt'])
+    except subprocess.CalledProcessError:
+        pytest.skip("bash without compopt")
+    (change_dir / "create").mkdir()
+    (change_dir / "subdir").mkdir()
+    completion = complete(test_parser, 'bash')
+    assert "complete -F _shtab_myprog myprog" in completion, \
+        "`-o filenames` must not apply readline filename post-processing globally"
+    lines = bash_candidates(completion, ["myprog cre", "myprog create alpha sub"], change_dir)
+    assert lines == [
+        "myprog create ",              # choices should take priority over dirs
+        "myprog create alpha subdir/", # dirs should still have trailing `/`
+    ]
 
 
 def test_fish_global_option_value(test_parser):
