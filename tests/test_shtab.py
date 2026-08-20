@@ -482,6 +482,8 @@ def test_file_completion(shell, change_dir, test_parser):
         (change_dir / "subdir" / "nested.txt").touch()
         assert powershell_candidates(completion, "myprog create alpha subdir/nes",
                                      change_dir) == [f"subdir{os.sep}nested.txt"]
+        assert powershell_candidates(completion, "myprog create alpha subdir/",
+                                     change_dir) == [f"subdir{os.sep}nested.txt"]
         absolute = change_dir / "subdir" / "nes"
         candidates = powershell_candidates(completion, f"myprog create --exclude-from {absolute}",
                                            change_dir)
