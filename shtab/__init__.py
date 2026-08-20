@@ -95,14 +95,13 @@ def glob(*patterns: str) -> CompleteType:
             "powershell": dedent(f"""
               function _shtab_glob_compgen_{sha(patterns)} {{
                 param([string]$WordToComplete)
-                $dir = if ($WordToComplete) {{
-                  Split-Path -Path $WordToComplete -Parent  }} else {{ "" }}
+                $dir = ''
+                if ($WordToComplete -match '^(.*[\\\\/])') {{ $dir = $Matches[1] }}
                 Get-ChildItem -Path "$WordToComplete*" `
                 -Include {_powershell_list(patterns)} -File -ErrorAction SilentlyContinue |
-                  ForEach-Object {{ _shtab_powershell_join_prefix $dir $_.Name }}
+                  ForEach-Object {{ $dir + $_.Name }}
                 Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-                  ForEach-Object {{ (_shtab_powershell_join_prefix $dir $_.Name) `
-                  + [System.IO.Path]::DirectorySeparatorChar }}
+                  ForEach-Object {{ $dir + $_.Name + [System.IO.Path]::DirectorySeparatorChar }}
               }}"""),
         }} # yapf: disable
 
@@ -1270,27 +1269,22 @@ $$${root_prefix}_help = ${help_ht}
 
 # --- Helper functions ---
 
-function _shtab_powershell_join_prefix {
-  param([string]$Dir, [string]$Name)
-  if ($Dir) { return (Join-Path $Dir $Name) } else { return $Name }
-}
-
 function _shtab_powershell_compgen_files {
   param([string]$WordToComplete)
-  $dir = if ($WordToComplete) { Split-Path -Path $WordToComplete -Parent } else { "" }
+  $dir = ''
+  if ($WordToComplete -match '^(.*[\\/])') { $dir = $Matches[1] }
   Get-ChildItem -Path "$WordToComplete*" -File -ErrorAction SilentlyContinue |
-    ForEach-Object { _shtab_powershell_join_prefix $dir $_.Name }
+    ForEach-Object { $dir + $_.Name }
   Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-    ForEach-Object { (_shtab_powershell_join_prefix $dir $_.Name) `
-    + [System.IO.Path]::DirectorySeparatorChar }
+    ForEach-Object { $dir + $_.Name + [System.IO.Path]::DirectorySeparatorChar }
 }
 
 function _shtab_powershell_compgen_dirs {
   param([string]$WordToComplete)
-  $dir = if ($WordToComplete) { Split-Path -Path $WordToComplete -Parent } else { "" }
+  $dir = ''
+  if ($WordToComplete -match '^(.*[\\/])') { $dir = $Matches[1] }
   Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
-    ForEach-Object { (_shtab_powershell_join_prefix $dir $_.Name) `
-    + [System.IO.Path]::DirectorySeparatorChar }
+    ForEach-Object { $dir + $_.Name + [System.IO.Path]::DirectorySeparatorChar }
 }
 
 function _shtab_powershell_replace_nonword {
