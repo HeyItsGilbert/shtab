@@ -153,6 +153,10 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
       | sudo tee /usr/share/fish/vendor_completions.d/MY_PROG.fish
     ```
 
+### click
+
+Speedup `click`'s completions (and get support for more shell types) by changing from e.g. `_MY_PROG_COMPLETE=bash_source my-prog` to `shtab my_prog.cli.cli --prog my-prog -s bash`
+
 ## Library Usage
 
 !!! tip

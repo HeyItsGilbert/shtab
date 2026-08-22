@@ -77,20 +77,11 @@ Not working? Check out `frequently asked questions <https://tqdm.github.io/shtab
 Alternatives
 ------------
 
+All these execute the underlying script *every* time ``<TAB>`` is pressed (slow and have side-effects):
+
 - `argcomplete <https://pypi.org/project/argcomplete>`_
-
-  - executes the underlying script *every* time ``<TAB>`` is pressed (slow and has side-effects)
-
-- `pyzshcomplete <https://pypi.org/project/pyzshcomplete>`_
-
-  - executes the underlying script *every* time ``<TAB>`` is pressed (slow and has side-effects)
-  - only provides ``zsh`` completion
-
-- `click <https://pypi.org/project/click>`_
-
-  - executes the underlying script *every* time ``<TAB>`` is pressed (slow and has side-effects)
-  - solves multiple problems (rather than POSIX-style "do one thing well")
-  - don't want to migrate away from ``click``? Use `shtab's one-liner click integration <https://tqdm.github.io/shtab/use/#library-usage>`_
+- `pyzshcomplete <https://pypi.org/project/pyzshcomplete>`_ (only provides ``zsh`` completion)
+- `click <https://pypi.org/project/click>`_ (don't want to migrate away from ``click``? Use ``shtab``'s one-liner click integration `in the CLI <https://tqdm.github.io/shtab/use/#click>`_ or `in a library <https://tqdm.github.io/shtab/use/#library-usage>`_)
 
 Contributions
 -------------
