@@ -25,7 +25,7 @@ renderer:
   - title: Usage
     name: use
     source: use.md
-  - title: 'Ref: shtab'
+  - title: Reference
     name: ref
     contents:
     - shtab.FILE
@@ -34,9 +34,8 @@ renderer:
     - shtab.cmd
     - shtab.complete
     - shtab.add_argument_to
-  - title: 'Ref: shtab.click'
-    name: ref-click
-    contents: [shtab.click.completion, shtab.click.complete]
+    - shtab.click.add_command_to
+    - shtab.click.option
   # external links
   - title: ↗ Source Code
     href: https://github.com/tqdm/shtab

@@ -26,8 +26,8 @@ index edfd3b2..44c3748 100644
  shtab = "shtab.main:main"
 +pathcomplete = "examples.pathcomplete:main"
 +customcomplete = "examples.customcomplete:main"
-+greeter = "examples.click_greeter:greeter"
-+main = "examples.click_subcommand:main"
++click-process = "examples.click_process:process"
++click-subcommand = "examples.click_subcommand:main"
 ```
 
 ## Layout

@@ -90,7 +90,7 @@ Alternatives
 
   - executes the underlying script *every* time ``<TAB>`` is pressed (slow and has side-effects)
   - solves multiple problems (rather than POSIX-style "do one thing well")
-  - don't want to migrate away from ``click``? Use `shtab's click integration <https://tqdm.github.io/shtab/use/#library-usage>`_ instead
+  - don't want to migrate away from ``click``? Use `shtab's one-liner click integration <https://tqdm.github.io/shtab/use/#library-usage>`_
 
 Contributions
 -------------

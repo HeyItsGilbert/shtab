@@ -116,7 +116,7 @@ Not working?
 - [click](https://pypi.org/project/click)
     - executes the underlying script *every* time `<TAB>` is pressed (slow and has side-effects)
     - solves multiple problems (rather than POSIX-style "do one thing well")
-    - don't want to migrate away from `click`? Use [`shtab`'s `click` integration](use.md#library-usage) instead
+    - don't want to migrate away from `click`? Use [`shtab`'s one-liner `click` integration](use.md#library-usage)
 
 ## Contributions
 

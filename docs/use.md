@@ -227,29 +227,44 @@ Add direct support to scripts for a little more configurability:
 
 === "click"
 
-    See [examples/click_greeter.py](https://github.com/tqdm/shtab/blob/main/examples/click_greeter.py) for an alternative without subcommands.
-
-    ```{.py title="click_subcommand.py" linenums="1" hl_lines="20"}
+    ```{.py title="click_process.py" linenums="1" hl_lines="5"}
     #!/usr/bin/env python
     import click, shtab.click
 
-    @click.group()
+    @click.command('click-process')
+    @shtab.click.option() # magic!
+    @click.argument('out-dir', type=click.Path(file_okay=False), required=False)
+    @click.option('--config', type=click.File(), help="Config file.")
+    @click.option('-q', '--quiet', is_flag=True, help="Suppress output.")
+    def process(config, out_dir, quiet):
+        """Click example CLI with shtab."""
+        if not quiet:
+            print(f"Reading from {config} and writing to {out_dir}")
+
+    if __name__ == '__main__':
+        process()
+    ```
+
+=== "click (group/subcommand)"
+
+    ```{.py title="click_subcommand.py" linenums="1" hl_lines="17"}
+    #!/usr/bin/env python
+    import click, shtab.click
+
+    @click.group('click-subcommand')
     def main():
         """Main (root) CLI group command."""
 
     @main.command()
-    @click.argument('you', default="Anon")
-    @click.argument('me', default="Casper")
-    @click.option('-g', '--goodbye', is_flag=True, help='Say "goodbye" (instead of "hello").')
-    @click.option('--file', type=click.File(), help="Input file to read from.")
-    @click.option('--path', type=click.Path(exists=True, file_okay=False),
-                  help="Input directory to read from.")
-    def greeter(you, me, goodbye, file, path):
-        """Greetings and partings."""
-        msg = "k thx bai!" if goodbye else "hai!"
-        print(f"{me} says '{msg}' to {you} after reading from {file} and {path}")
+    @click.argument('out-dir', type=click.Path(file_okay=False))
+    @click.option('--config', type=click.File(), help="Config file.")
+    @click.option('-q', '--quiet', is_flag=True, help="Suppress output.")
+    def process(config, out_dir, quiet):
+        """Click example CLI with shtab."""
+        if not quiet:
+            print(f"Reading from {config} and writing to {out_dir}")
 
-    main.command()(shtab.click.completion)  # magic!
+    shtab.click.add_command_to(main) # magic!
 
     if __name__ == '__main__':
         main()

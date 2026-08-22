@@ -1,18 +1,12 @@
-"""
-Add "completion" command to `main` click group:
-
->>> import shtab.click
->>> main.command()(shtab.click.completion)
-"""
 import argparse
 import logging
+from functools import wraps
 
 import click
 
-from . import DIRECTORY, FILE, SUPPORTED_SHELLS
-from . import complete as _complete
+from . import DIRECTORY, FILE, SUPPORTED_SHELLS, complete
 
-__all__ = ['completion', 'complete']
+__all__ = ['add_command_to', 'option']
 log = logging.getLogger(__name__)
 
 
@@ -23,19 +17,53 @@ log = logging.getLogger(__name__)
 def completion(ctx, shell, prefix, preamble):
     """Print shell completion script."""
     root = ctx.find_root()
-    print(complete(root.command, shell=shell, root_prefix=prefix, preamble=preamble))
+    parser = click2argparse(root.command)
+    print(complete(parser, shell=shell, root_prefix=prefix, preamble=preamble))
 
 
-def complete(command: click.Command, **kwargs):
+def add_command_to(group: click.Group, name='completion',
+                   help=completion.__doc__): # pylint: disable=redefined-builtin, yapf: disable
     """
-    Generate a completion script for the given click command.
-    See <../../examples/click_greeter.py> for usage.
+    Add `completion` command to 'myapp' click group:
 
-    kwargs:
-      See `shtab.complete`.
+    >>> import click, shtab.click
+    >>> @click.group('myapp')
+    ... def main():
+    ...     ...
+    >>> shtab.click.add_command_to(main) # magic!
     """
-    parser = click2argparse(command)
-    return _complete(parser, **kwargs)
+    return group.command(name=name, help=help)(completion)
+
+
+def option(help="Print shell completion script.",  # pylint: disable=redefined-builtin
+           **attrs): # yapf: disable
+    """
+    Attaches a `--print-completion=SHELL` option to 'myapp' command
+    (to print a shell completion script and exit):
+
+    >>> import click, shtab.click
+    >>> @click.command('myapp')
+    ... @shtab.click.option() # magic!
+    ... @click.argument(...)
+    ... @click.option(...)
+    ... def main(...):
+    """
+    def inner(func):
+        @click.option('--print-completion', default=None, required=False,
+                      type=click.Choice(SUPPORTED_SHELLS), help=help, **attrs)
+        @wraps(func)
+        @click.pass_context
+        def wrapper(ctx, print_completion, *args, **kwargs):
+            if print_completion:
+                root = ctx.find_root()
+                parser = click2argparse(root.command)
+                print(complete(parser, shell=print_completion))
+                return
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return inner
 
 
 def _complete_paths(arg, param):
