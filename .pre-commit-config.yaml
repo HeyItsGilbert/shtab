@@ -33,7 +33,7 @@ repos:
     args: [-vv]
     types: [python]
     pass_filenames: false
-    additional_dependencies: [pytest-cov]
+    additional_dependencies: [pytest-cov, click]
 - repo: https://github.com/codespell-project/codespell
   rev: v2.4.3
   hooks:
