@@ -12,6 +12,7 @@ import click
 from . import DIRECTORY, FILE, SUPPORTED_SHELLS
 from . import complete as _complete
 
+__all__ = ['completion', 'complete']
 log = logging.getLogger(__name__)
 
 
@@ -28,9 +29,10 @@ def completion(ctx, shell, prefix, preamble):
 def complete(command: click.Command, **kwargs):
     """
     Generate a completion script for the given click command.
+    See <../../examples/click_greeter.py> for usage.
 
     kwargs:
-      passed to `shtab.complete()`.
+      See `shtab.complete`.
     """
     parser = click2argparse(command)
     return _complete(parser, **kwargs)
