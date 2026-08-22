@@ -27,4 +27,4 @@ def greeter(ctx, you, me, goodbye, print_completion):
 
 
 if __name__ == '__main__':
-    greeter()
+    greeter()      # pylint: disable=no-value-for-parameter

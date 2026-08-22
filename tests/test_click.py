@@ -4,7 +4,8 @@ import pytest
 
 from examples import click_greeter, click_subcommand
 
-from .test_shtab import fix_shell, no_log_info  # noqa: F401, yapf: disable
+from .test_shtab import no_log_info  # noqa: F401, pylint: disable=unused-import, yapf: disable
+from .test_shtab import fix_shell
 
 ARG_HELP = version('click') >= '8.5'
 
