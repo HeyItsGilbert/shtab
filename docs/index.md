@@ -21,6 +21,7 @@
 - Supports
     - [`argparse`](https://docs.python.org/library/argparse)
     - [`docopt`](https://pypi.org/project/docopt) (via [`argopt`](https://pypi.org/project/argopt))
+    - [`click`](https://pypi.org/project/click)
 - `<arguments>`, `--options` and `sub commands`
 - Choices (`--say={hello,goodbye}`)
 - Paths (`--file={*.y*ml,*.toml}`, `--dir=*/`)
@@ -107,20 +108,17 @@ Not working?
 
 ## Alternatives
 
+All these execute the underlying script *every* time `<TAB>` is pressed (slow and have side-effects):
+
 - [argcomplete](https://pypi.org/project/argcomplete)
-    - executes the underlying script *every* time `<TAB>` is pressed (slow and has side-effects)
-- [pyzshcomplete](https://pypi.org/project/pyzshcomplete)
-    - executes the underlying script *every* time `<TAB>` is pressed (slow and has side-effects)
-    - only provides `zsh` completion
-- [click](https://pypi.org/project/click)
-    - different framework completely replacing the builtin `argparse`
-    - solves multiple problems (rather than POSIX-style "do one thing well")
+- [pyzshcomplete](https://pypi.org/project/pyzshcomplete) (only provides `zsh` completion)
+- [click](https://pypi.org/project/click) (don't want to migrate away from `click`? Use `shtab`'s one-liner `click` integration [in the CLI](use.md#click) or [in a library](use.md#library-usage))
 
 ## Contributions
 
 Please do open [issues] & [pull requests](https://github.com/tqdm/shtab/pulls)!
 
-See [CONTRIBUTING.md](https://github.com/tqdm/shtab/tree/main/CONTRIBUTING.md) for more guidance.
+See [CONTRIBUTING.md](https://github.com/tqdm/shtab/blob/main/CONTRIBUTING.md) for more guidance.
 
 [issues]: https://github.com/tqdm/shtab/issues
 

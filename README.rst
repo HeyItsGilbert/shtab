@@ -26,6 +26,7 @@ Features
 
   - `argparse <https://docs.python.org/library/argparse>`_
   - `docopt <https://pypi.org/project/docopt>`_ (via `argopt <https://pypi.org/project/argopt>`_)
+  - `click <https://pypi.org/project/click>`_
 
 - ``<arguments>``, ``--options`` and ``sub commands``
 - Choices (``--say={hello,goodbye}```)
@@ -66,7 +67,7 @@ There are two ways of using ``shtab``:
 Examples
 --------
 
-See `the docs for usage examples <https://tqdm.github.io/shtab/use/#main.py>`_.
+See `the docs for usage examples <https://tqdm.github.io/shtab/use/>`_.
 
 FAQs
 ----
@@ -76,21 +77,11 @@ Not working? Check out `frequently asked questions <https://tqdm.github.io/shtab
 Alternatives
 ------------
 
+All these execute the underlying script *every* time ``<TAB>`` is pressed (slow and have side-effects):
+
 - `argcomplete <https://pypi.org/project/argcomplete>`_
-
-  - executes the underlying script *every* time ``<TAB>`` is pressed (slow and
-    has side-effects)
-
-- `pyzshcomplete <https://pypi.org/project/pyzshcomplete>`_
-
-  - executes the underlying script *every* time ``<TAB>`` is pressed (slow and
-    has side-effects)
-  - only provides ``zsh`` completion
-
-- `click <https://pypi.org/project/click>`_
-
-  - different framework completely replacing the builtin ``argparse``
-  - solves multiple problems (rather than POSIX-style "do one thing well")
+- `pyzshcomplete <https://pypi.org/project/pyzshcomplete>`_ (only provides ``zsh`` completion)
+- `click <https://pypi.org/project/click>`_ (don't want to migrate away from ``click``? Use ``shtab``'s one-liner click integration `in the CLI <https://tqdm.github.io/shtab/use/#click>`_ or `in a library <https://tqdm.github.io/shtab/use/#library-usage>`_)
 
 Contributions
 -------------
@@ -101,7 +92,7 @@ Please do open `issues <https://github.com/tqdm/shtab/issues>`_ & `pull requests
 - support ``python -m`` prefix (#55)
 
 See
-`CONTRIBUTING.md <https://github.com/tqdm/shtab/tree/main/CONTRIBUTING.md>`_
+`CONTRIBUTING.md <https://github.com/tqdm/shtab/blob/main/CONTRIBUTING.md>`_
 for more guidance.
 
 |git-fame|
