@@ -25,7 +25,7 @@ repos:
     args: [-i]
     entry: TODO
     types: [text]
-    exclude: ^(.pre-commit-config.yaml|.github/workflows/test.yml)$
+    exclude: ^.pre-commit-config.yaml$
   - id: pytest
     name: pytest
     language: python

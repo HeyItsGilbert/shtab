@@ -92,17 +92,17 @@ follow the OS-specific instructions below.
 
 ## FAQs
 
-Not working?
-
 - Ensure that `shtab` and the application you're trying to complete are both accessible from your environment.
-- Ensure that `prog` is set:
-    - if using [`options.entry_points.console_scripts=MY_PROG=...`](https://setuptools.pypa.io/en/latest/userguide/entry_point.html), then ensure the main parser's `prog` matches `argparse.ArgumentParser(prog="MY_PROG")` or override it using `shtab MY_PROG.get_main_parser --prog=MY_PROG`.
-    - if executing a script file `./MY_PROG.py` (with a [shebang](<https://en.wikipedia.org/wiki/Shebang_(Unix)>) `#!/usr/bin/env python`) directly, then use `argparse.ArgumentParser(prog="MY_PROG.py")` or override it using `shtab MY_PROG.get_main_parser --prog=MY_PROG.py`.
-- Any argument with `help=argparse.SUPPRESS` is skipped.
+- Ensure that `prog` matches the executable name:
+    - if using [`project.scripts.MY-PROG=...`](https://setuptools.pypa.io/en/latest/userguide/entry_point.html), then
+        - set the main parser's name (`argparse.ArgumentParser(prog="MY-PROG")`, `argopt(prog="MY-PROG")`, `click.group("MY-PROG")`, `click.command("MY-PROG")`, etc)
+        - or override it using `shtab MY_PROG.get_main_parser --prog=MY-PROG`
+    - if executing a script file `./MY_PROG.py` (with a [shebang](<https://en.wikipedia.org/wiki/Shebang_(Unix)>) `#!/usr/bin/env python`) directly, then use `prog="MY_PROG.py"`
+- Any suppressed argument (`help=argparse.SUPPRESS`, click `hidden=True`/`deprecated=True`) is skipped.
 - Default completion (when no choices are specified) is disabled. Enable it explicitly via e.g. `parser.add_argument('positional').complete = shtab.FILE`.
 - Some shells (e.g. `zsh`, `fish`) print information during tab completion:
-    - subparser `description` takes precedence over `help`.
-    - argument `metavar` takes precedence over `dest`.
+    - subparser `description` takes precedence over `help`
+    - argument `metavar` takes precedence over `dest`
 - [Ask a general question on StackOverflow](https://stackoverflow.com/questions/tagged/shtab).
 - [Report bugs and open feature requests on GitHub][issues].
 

@@ -103,6 +103,8 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
       | sudo tee /usr/share/fish/vendor_completions.d/shtab.fish
     ```
 
+### argparse
+
 Any existing `argparse`-based scripts should be supported with minimal effort.
 For example, starting with this existing code:
 
@@ -111,7 +113,7 @@ For example, starting with this existing code:
 import argparse
 
 def get_main_parser():
-    parser = argparse.ArgumentParser(prog="MY_PROG", ...)
+    parser = argparse.ArgumentParser(prog="MY-PROG", ...)
     parser.add_argument(...)
     parser.add_subparsers(...)
     ...
@@ -123,39 +125,39 @@ if __name__ == '__main__':
     ...
 ```
 
-Assuming this code example is installed in `MY_PROG.command.main`, simply run:
+Assuming this code example is installed in `MY_PROG.cli`, simply run:
 
 === "bash"
 
     ```sh
-    shtab --shell=bash -u MY_PROG.command.main.get_main_parser \
-      | sudo tee /etc/bash_completion.d/MY_PROG
+    shtab --shell=bash -u MY_PROG.cli.get_main_parser \
+      | sudo tee /etc/bash_completion.d/MY-PROG
     ```
 
 === "zsh"
 
     ```sh
-    shtab --shell=zsh -u MY_PROG.command.main.get_main_parser \
-      | sudo tee /usr/local/share/zsh/site-functions/_MY_PROG
+    shtab --shell=zsh -u MY_PROG.cli.get_main_parser \
+      | sudo tee /usr/local/share/zsh/site-functions/_MY-PROG
     ```
 
 === "tcsh"
 
     ```sh
-    shtab --shell=tcsh -u MY_PROG.command.main.get_main_parser \
-      | sudo tee /etc/profile.d/MY_PROG.completion.csh
+    shtab --shell=tcsh -u MY_PROG.cli.get_main_parser \
+      | sudo tee /etc/profile.d/MY-PROG.completion.csh
     ```
 
 === "fish"
 
     ```sh
-    shtab --shell=fish -u MY_PROG.command.main.get_main_parser \
-      | sudo tee /usr/share/fish/vendor_completions.d/MY_PROG.fish
+    shtab --shell=fish -u MY_PROG.cli.get_main_parser \
+      | sudo tee /usr/share/fish/vendor_completions.d/MY-PROG.fish
     ```
 
 ### click
 
-Speedup `click`'s completions (and get support for more shell types) by changing from e.g. `_MY_PROG_COMPLETE=bash_source my-prog` to `shtab my_prog.cli.cli --prog my-prog -s bash`
+Speedup `click`'s completions (and get support for more shell types) by changing from e.g. `_MY_PROG_COMPLETE=bash_source MY-PROG` to `shtab MY_PROG.cli.main --prog MY-PROG -s bash`
 
 ## Library Usage
 
@@ -229,7 +231,7 @@ Add direct support to scripts for a little more configurability:
         main()
     ```
 
-=== "click"
+=== "click.command"
 
     ```{.py title="click_process.py" linenums="1" hl_lines="5"}
     #!/usr/bin/env python
@@ -249,7 +251,7 @@ Add direct support to scripts for a little more configurability:
         process()
     ```
 
-=== "click (group/subcommand)"
+=== "click.group"
 
     ```{.py title="click_subcommand.py" linenums="1" hl_lines="17"}
     #!/usr/bin/env python

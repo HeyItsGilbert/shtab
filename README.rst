@@ -29,7 +29,7 @@ Features
   - `click <https://pypi.org/project/click>`_
 
 - ``<arguments>``, ``--options`` and ``sub commands``
-- Choices (``--say={hello,goodbye}```)
+- Choices (``--say={hello,goodbye}``)
 - Paths (``--file={*.y*ml,*.toml}``, ``--dir=*/``)
 - Dynamic shell commands (``--branch=$(git branch)``)
 
